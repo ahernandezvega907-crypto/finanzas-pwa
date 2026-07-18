@@ -1,0 +1,52 @@
+@import "tailwindcss";
+
+:root {
+  color-scheme: dark;
+
+  /* Mapeo del Design System a Tailwind v4 */
+  --theme-background: #000000;
+  --theme-surface: #111111;
+  --theme-surface-light: #1b1b1b;
+  --theme-border: #2b2b2b;
+  --theme-text: #ffffff;
+  --theme-text-secondary: #b5b5b5;
+  --theme-primary: #14f195;
+  --theme-secondary: #00d9ff;
+  --theme-danger: #ef4444;
+  --theme-warning: #f59e0b;
+
+  /* Radios */
+  --radius-sm: 0.25rem;
+  --radius-md: 0.375rem;
+  --radius-lg: 0.5rem;
+  --radius-xl: 0.75rem;
+}
+
+/* Registrar utilidades personalizadas extendidas para Tailwind v4 */
+@theme {
+  --color-background: var(--theme-background);
+  --color-surface: var(--theme-surface);
+  --color-surface-light: var(--theme-surface-light);
+  --color-border: var(--theme-border);
+  --color-text-main: var(--theme-text);
+  --color-text-muted: var(--theme-text-secondary);
+  --color-primary: var(--theme-primary);
+  --color-secondary: var(--theme-secondary);
+  --color-danger: var(--theme-danger);
+  --color-warning: var(--theme-warning);
+}
+
+*{
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+html, body {
+    background: var(--theme-background);
+    color: var(--theme-text);
+    font-family: Inter, system-ui, sans-serif;
+    min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+}
