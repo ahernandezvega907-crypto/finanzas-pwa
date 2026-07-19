@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 // Hooks de la feature
 import { useTransactions } from '../features/transactions/hooks/useTransactions';
 import { useDashboardStats } from '../features/transactions/hooks/useDashboardStats'; 
@@ -11,7 +12,8 @@ import { IncomeExpenseChart } from '../features/transactions/components/IncomeEx
 import { useAuth } from '../hooks/useAuth';
 
 export default function Dashboard() {
-  const { user } = useAuth();
+  const { user, signOut } = useAuth();
+  const navigate = useNavigate();
   const activeProfileId = user?.id;
 
   // Extraemos todas las funciones de nuestro hook
@@ -59,13 +61,29 @@ export default function Dashboard() {
     }
   };
 
+  // Maneja el Cierre de Sesión forzado para regresar al Login
+  const handleLogout = async () => {
+    if (signOut) {
+      await signOut();
+    }
+    navigate('/login');
+  };
+
   return (
     <div className="min-h-screen bg-gray-100 dark:bg-zinc-950 py-8 px-4 font-sans transition-colors duration-200">
       
       {/* 1. Cabecera */}
-      <header className="max-w-6xl mx-auto mb-8">
-        <h1 className="text-3xl font-extrabold text-gray-900 dark:text-white">Flujo de dinero</h1>
-        <p className="text-sm text-gray-500 dark:text-gray-400">Panel de Control de Transacciones</p>
+      <header className="max-w-6xl mx-auto mb-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-extrabold text-gray-900 dark:text-white">Flujo de dinero</h1>
+          <p className="text-sm text-gray-500 dark:text-gray-400">Panel de Control de Transacciones</p>
+        </div>
+        <button
+          onClick={handleLogout}
+          className="self-start sm:self-center bg-red-600 hover:bg-red-700 text-white font-medium text-sm px-4 py-2 rounded-xl shadow-sm transition-colors duration-150"
+        >
+          Cerrar Sesión
+        </button>
       </header>
 
       <div className="max-w-6xl mx-auto space-y-8">

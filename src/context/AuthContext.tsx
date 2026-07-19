@@ -6,6 +6,7 @@ export interface AuthContextType {
   user: User | null;
   loading: boolean;
   login: (email: string, password: string) => Promise<void>;
+  register: (email: string, password: string) => Promise<void>; // <-- Añadido al tipado estricto
   signOut: () => Promise<void>;
 }
 
@@ -49,6 +50,12 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     if (error) throw new Error(error.message);
   }, []);
 
+  // Nueva función optimizada para registrar nuevos usuarios en Supabase Auth
+  const register = useCallback(async (email: string, password: string) => {
+    const { error } = await supabase.auth.signUp({ email, password });
+    if (error) throw new Error(error.message);
+  }, []);
+
   const signOut = useCallback(async () => {
     setLoading(true);
     try {
@@ -60,13 +67,14 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   }, []);
 
-  // Memorización de referencia perfecta del Value del Provider
+  // Memorización de referencia perfecta del Value del Provider incluyendo 'register'
   const contextValue = useMemo<AuthContextType>(() => ({
     user,
     loading,
     login,
+    register, // <-- Añadido a la optimización de referencias
     signOut,
-  }), [user, loading, login, signOut]);
+  }), [user, loading, login, register, signOut]);
 
   // Permitimos renderizar los hijos de manera inmediata delegando las pantallas de carga (Splash)
   // al Router o componente consumidor para evitar desmontajes abruptos de toda la App

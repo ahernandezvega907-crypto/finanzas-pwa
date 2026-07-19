@@ -5,7 +5,7 @@ import { PageSkeleton } from '../components/ui/PageSkeleton';
 
 // Importaciones perezosas (Lazy Loading con las rutas reales del proyecto)
 const Login = lazy(() => import('../pages/Login'));
-const TransactionsPage = lazy(() => import('../pages/TransactionsPage'));
+const TransactionsPage = lazy(() => import('../pages/Dashboard'));
 const BudgetsPage = lazy(() => import('../pages/Budgets')); // ¡Corregido aquí! Apunta a Budgets.tsx
 const ReportsPage = lazy(() => import('../pages/ReportsPage'));
 
