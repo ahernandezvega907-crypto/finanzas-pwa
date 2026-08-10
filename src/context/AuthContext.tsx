@@ -1,86 +1,94 @@
-import React, { createContext, useEffect, useState, ReactNode, useMemo, useCallback } from 'react';
-import { supabase } from '../supabaseClient';
-import { User } from '@supabase/supabase-js';
+import React, { createContext, useContext, useEffect, useState } from 'react';
+import { User, Session } from '@supabase/supabase-js';
+import { supabase } from "../lib/supabase";
 
 export interface AuthContextType {
   user: User | null;
+  session: Session | null;
   loading: boolean;
-  login: (email: string, password: string) => Promise<void>;
-  register: (email: string, password: string) => Promise<void>; // <-- Añadido al tipado estricto
+  isPinLocked: boolean;
+  setIsPinLocked: (locked: boolean) => void;
+  signInWithEmail: (email: string, pass: string) => Promise<{ error: any }>;
+  signUpWithEmail: (email: string, pass: string) => Promise<{ error: any }>;
   signOut: () => Promise<void>;
 }
 
 export const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState<boolean>(true);
+  const [session, setSession] = useState<Session | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [isPinLocked, setIsPinLocked] = useState(false);
 
   useEffect(() => {
-    let isMounted = true;
-
-    // Inicialización asíncrona de la sesión actual
-    supabase.auth.getSession().then(({ data: { session }, error }) => {
-      if (isMounted) {
-        if (!error && session) {
-          setUser(session.user);
-        }
-        setLoading(false);
+    // 1. Obtener sesión inicial
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      setUser(session?.user ?? null);
+      
+      // Si hay un PIN guardado en localStorage, bloqueamos la app al inicio
+      const storedPin = localStorage.getItem('app_pin_code');
+      if (session && storedPin) {
+        setIsPinLocked(true);
       }
-    });
-
-    // Suscripción al listener global de autenticación de Supabase
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (isMounted) {
-        setUser(session?.user ?? null);
-        setLoading(false);
-      }
-    });
-
-    return () => {
-      isMounted = false;
-      subscription.unsubscribe();
-    };
-  }, []);
-
-  const login = useCallback(async (email: string, password: string) => {
-    // No cambiamos loading aquí de forma manual para evitar parpadeos visuales;
-    // la respuesta asíncrona de onAuthStateChange se encargará de resolver el flujo.
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) throw new Error(error.message);
-  }, []);
-
-  // Nueva función optimizada para registrar nuevos usuarios en Supabase Auth
-  const register = useCallback(async (email: string, password: string) => {
-    const { error } = await supabase.auth.signUp({ email, password });
-    if (error) throw new Error(error.message);
-  }, []);
-
-  const signOut = useCallback(async () => {
-    setLoading(true);
-    try {
-      await supabase.auth.signOut();
-    } finally {
-      // Limpieza optimista y segura en caso de que falle la conexión durante el cierre de sesión
-      setUser(null);
+      
       setLoading(false);
-    }
+    });
+
+    // 2. Escuchar cambios de estado en la autenticación (Login, Logout, Token Refresh)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+      setUser(session?.user ?? null);
+      setLoading(false);
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
 
-  // Memorización de referencia perfecta del Value del Provider incluyendo 'register'
-  const contextValue = useMemo<AuthContextType>(() => ({
-    user,
-    loading,
-    login,
-    register, // <-- Añadido a la optimización de referencias
-    signOut,
-  }), [user, loading, login, register, signOut]);
+  const signInWithEmail = async (email: string, pass: string) => {
+    const { error } = await supabase.auth.signInWithPassword({
+      email,
+      password: pass,
+    });
+    return { error };
+  };
 
-  // Permitimos renderizar los hijos de manera inmediata delegando las pantallas de carga (Splash)
-  // al Router o componente consumidor para evitar desmontajes abruptos de toda la App
+  const signUpWithEmail = async (email: string, pass: string) => {
+    const { error } = await supabase.auth.signUp({
+      email,
+      password: pass,
+    });
+    return { error };
+  };
+
+  const signOut = async () => {
+    await supabase.auth.signOut();
+    setIsPinLocked(false);
+  };
+
   return (
-    <AuthContext.Provider value={contextValue}>
+    <AuthContext.Provider
+      value={{
+        user,
+        session,
+        loading,
+        isPinLocked,
+        setIsPinLocked,
+        signInWithEmail,
+        signUpWithEmail,
+        signOut,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );
+};
+
+export const useAuth = (): AuthContextType => {
+  const context = useContext(AuthContext);
+  if (!context) {
+    throw new Error('useAuth debe ser utilizado obligatoriamente dentro de un AuthProvider');
+  }
+  return context;
 };

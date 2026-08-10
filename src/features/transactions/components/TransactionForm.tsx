@@ -1,168 +1,220 @@
-import { useEffect } from 'react';
-import { useForm } from 'react-hook-form';
+import React, { useEffect } from 'react';
+import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { createTransactionSchema, type CreateTransactionInput } from '../../../validation/transaction.schema';
-import { Transaction } from '../../../types/transaction';
+import {
+  Box,
+  TextField,
+  Select,
+  MenuItem,
+  FormControl,
+  InputLabel,
+  FormHelperText,
+  Button,
+  Typography,
+  useTheme,
+  CircularProgress,
+  Skeleton,
+  Alert,
+} from '@mui/material';
+import {
+  createTransactionSchema,
+  CreateTransactionForm,
+} from '../schemas/transaction.schema';
+import { useCategories } from '../../categories/hooks/useCategories';
+import type { Transaction } from '../domain/transaction.types';
 
 interface TransactionFormProps {
-  onSubmitSuccess: (data: CreateTransactionInput) => void;
-  isLoading: boolean;
-  transaction?: Transaction | null; 
-  onCancelEdit?: () => void;         
+  onSubmit: (data: CreateTransactionForm) => Promise<void>;
+  initialData?: Transaction | null;
+  onCancel?: () => void;
 }
 
-// Función auxiliar ultra segura para extraer YYYY-MM-DD sin desfase horario (evitando retrocesos de un día)
-const getSafeDateString = (dateInput: string | Date): string => {
-  try {
-    const d = new Date(dateInput);
-    if (isNaN(d.getTime())) throw new Error();
-    // Extrae año, mes y día de forma local o directa del string si viene en formato ISO estándar
-    const datePart = typeof dateInput === 'string' ? dateInput.split('T')[0] : '';
-    if (/^\d{4}-\d{2}-\d{2}$/.test(datePart)) {
-      return datePart;
-    }
-    // Fallback seguro usando métodos locales rellenando con ceros a la izquierda
-    const year = d.getUTCFullYear();
-    const month = String(d.getUTCMonth() + 1).padStart(2, '0');
-    const day = String(d.getUTCDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
-  } catch {
-    return new Date().toISOString().split('T')[0];
-  }
-};
+export const TransactionForm: React.FC<TransactionFormProps> = React.memo(
+  ({ onSubmit, initialData, onCancel }) => {
+    const theme = useTheme();
+    const { categories, loading, error, isEmpty, refresh } = useCategories();
 
-export function TransactionForm({ onSubmitSuccess, isLoading, transaction, onCancelEdit }: TransactionFormProps) {
-  const isEditing = !!transaction; 
-
-  const {
-    register,
-    handleSubmit,
-    reset,
-    formState: { errors },
-  } = useForm<CreateTransactionInput>({
-    resolver: zodResolver(createTransactionSchema),
-    defaultValues: {
-      type: 'expense',
-      amount: 0,
-      description: '',
-      category_id: null,
-      date: new Date().toISOString().split('T')[0],
-    },
-  });
-
-  // Cargar datos en el formulario evitando desfases de zonas horarias al formatear
-  useEffect(() => {
-    if (transaction) {
-      reset({
-        type: transaction.type,
-        amount: transaction.amount,
-        description: transaction.description || '',
-        category_id: transaction.category_id,
-        date: getSafeDateString(transaction.date),
-      });
-    } else {
-      reset({
+    const {
+      control,
+      handleSubmit,
+      reset,
+      formState: { errors, isSubmitting },
+    } = useForm<CreateTransactionForm>({
+      resolver: zodResolver(createTransactionSchema),
+      defaultValues: {
         type: 'expense',
+        categoryId: '',
         amount: 0,
         description: '',
-        category_id: null,
         date: new Date().toISOString().split('T')[0],
-      });
-    }
-  }, [transaction, reset]);
+      },
+    });
 
-  const FormSubmit = (data: CreateTransactionInput) => {
-    // Convertimos la fecha local seleccionada a un ISO String limpio para la BD
-    const processedData = {
-      ...data,
-      date: new Date(data.date).toISOString()
-    };
-    
-    onSubmitSuccess(processedData as any);
-    if (!isEditing) {
-      reset(); 
-    }
-  };
+    useEffect(() => {
+      if (initialData) {
+        reset({
+          type: initialData.type,
+          categoryId: initialData.categoryId,
+          amount: initialData.amount,
+          description: initialData.description,
+          date: initialData.date,
+        });
+      }
+    }, [initialData, reset]);
 
-  return (
-    <form onSubmit={handleSubmit(FormSubmit)} className="space-y-4 p-6 bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-200 dark:border-zinc-800 shadow-sm max-w-md mx-auto">
-      <h2 className="text-xl font-extrabold text-zinc-900 dark:text-white">
-        {isEditing ? '✏️ Editar Movimiento' : 'Registrar Movimiento'}
-      </h2>
+    const cardBg = theme.custom.card;
+    const borderColor = theme.custom.border;
+    const inputBg = theme.palette.background.default;
 
-      {/* Tipo de Transacción */}
-      <div>
-        <label className="block text-sm font-semibold text-zinc-700 dark:text-zinc-300 mb-1">Tipo</label>
-        <select
-          {...register('type')}
-          className="w-full px-3 py-2 border border-zinc-200 dark:border-zinc-800 rounded-xl bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-white focus:ring-2 focus:ring-emerald-500 transition-colors"
-        >
-          <option value="expense">Gasto 🔻</option>
-          <option value="income">Ingreso 🔺</option>
-        </select>
-        {errors.type && <p className="text-red-500 text-xs mt-1 font-medium">{errors.type.message}</p>}
-      </div>
+    return (
+      <Box
+        component="form"
+        onSubmit={handleSubmit(onSubmit)}
+        sx={{
+          display: 'flex',
+          flexDirection: 'column',
+          gap: theme.spacing(3),
+          p: theme.spacing(3),
+          backgroundColor: cardBg,
+          borderRadius: theme.shape.borderRadius,
+          border: `1px solid ${borderColor}`,
+          boxShadow: theme.shadows[1],
+        }}
+      >
+        <Typography variant="h6" sx={{ fontWeight: 600, color: 'text.primary' }}>
+          {initialData ? 'Editar Transacción' : 'Nueva Transacción'}
+        </Typography>
 
-      {/* Monto */}
-      <div>
-        <label className="block text-sm font-semibold text-zinc-700 dark:text-zinc-300 mb-1">Monto</label>
-        <input
-          type="number"
-          step="0.01"
-          {...register('amount', { valueAsNumber: true })}
-          className="w-full px-3 py-2 border border-zinc-200 dark:border-zinc-800 rounded-xl bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-white focus:ring-2 focus:ring-emerald-500 transition-colors"
-          placeholder="0.00"
+        {/* Tipo */}
+        <Controller
+          name="type"
+          control={control}
+          render={({ field }) => (
+            <FormControl fullWidth error={!!errors.type}>
+              <InputLabel>Tipo</InputLabel>
+              <Select {...field} label="Tipo" sx={{ bgcolor: inputBg }}>
+                <MenuItem value="income">Ingreso</MenuItem>
+                <MenuItem value="expense">Gasto</MenuItem>
+              </Select>
+              {errors.type && <FormHelperText>{errors.type.message}</FormHelperText>}
+            </FormControl>
+          )}
         />
-        {errors.amount && <p className="text-red-500 text-xs mt-1 font-medium">{errors.amount.message}</p>}
-      </div>
 
-      {/* Descripción */}
-      <div>
-        <label className="block text-sm font-semibold text-zinc-700 dark:text-zinc-300 mb-1">Descripción</label>
-        <input
-          type="text"
-          {...register('description')}
-          className="w-full px-3 py-2 border border-zinc-200 dark:border-zinc-800 rounded-xl bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-white focus:ring-2 focus:ring-emerald-500 transition-colors"
-          placeholder="Ej. Almuerzo, Salario, etc."
+        {/* Categoría */}
+        <Controller
+          name="categoryId"
+          control={control}
+          render={({ field }) => (
+            <FormControl fullWidth error={!!errors.categoryId} disabled={loading}>
+              <InputLabel>Categoría</InputLabel>
+              {loading ? (
+                <Skeleton variant="rounded" height={56} />
+              ) : error ? (
+                <Alert
+                  severity="error"
+                  action={
+                    <Button color="inherit" size="small" onClick={refresh}>
+                      Reintentar
+                    </Button>
+                  }
+                >
+                  Error al cargar categorías
+                </Alert>
+              ) : isEmpty ? (
+                <Alert severity="info">No hay categorías disponibles. Crea una primero.</Alert>
+              ) : (
+                <Select {...field} label="Categoría" sx={{ bgcolor: inputBg }}>
+                  {categories.map((cat) => (
+                    <MenuItem key={cat.id} value={cat.id}>
+                      {cat.name}
+                    </MenuItem>
+                  ))}
+                </Select>
+              )}
+              {errors.categoryId && <FormHelperText>{errors.categoryId.message}</FormHelperText>}
+            </FormControl>
+          )}
         />
-        {errors.description && <p className="text-red-500 text-xs mt-1 font-medium">{errors.description.message}</p>}
-      </div>
 
-      {/* Fecha */}
-      <div>
-        <label className="block text-sm font-semibold text-zinc-700 dark:text-zinc-300 mb-1">Fecha</label>
-        <input
-          type="date"
-          {...register('date')}
-          className="w-full px-3 py-2 border border-zinc-200 dark:border-zinc-800 rounded-xl bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-white focus:ring-2 focus:ring-emerald-500 transition-colors"
+        {/* Monto */}
+        <Controller
+          name="amount"
+          control={control}
+          render={({ field }) => (
+            <TextField
+              {...field}
+              fullWidth
+              label="Monto"
+              type="number"
+              inputProps={{ step: '0.01' }}
+              error={!!errors.amount}
+              helperText={errors.amount?.message}
+              sx={{ bgcolor: inputBg }}
+              onChange={(e) => field.onChange(Number(e.target.value))}
+            />
+          )}
         />
-        {errors.date && <p className="text-red-500 text-xs mt-1 font-medium">{errors.date.message}</p>}
-      </div>
 
-      {/* Botones de Acción */}
-      <div className="flex flex-col space-y-2 pt-2">
-        <button
-          type="submit"
-          disabled={isLoading}
-          className={`w-full py-2.5 px-4 text-white font-bold rounded-xl shadow-sm transition duration-150 cursor-pointer ${
-            isEditing 
-              ? 'bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400' 
-              : 'bg-emerald-600 hover:bg-emerald-700 disabled:bg-emerald-400'
-          }`}
-        >
-          {isLoading ? 'Guardando...' : isEditing ? 'Actualizar Transacción' : 'Guardar Transacción'}
-        </button>
+        {/* Descripción */}
+        <Controller
+          name="description"
+          control={control}
+          render={({ field }) => (
+            <TextField
+              {...field}
+              fullWidth
+              label="Descripción"
+              multiline
+              rows={2}
+              error={!!errors.description}
+              helperText={errors.description?.message}
+              sx={{ bgcolor: inputBg }}
+            />
+          )}
+        />
 
-        {isEditing && onCancelEdit && (
-          <button
-            type="button"
-            onClick={onCancelEdit}
-            className="w-full py-2 px-4 bg-zinc-100 hover:bg-zinc-200 text-zinc-800 dark:bg-zinc-800 dark:hover:bg-zinc-700 dark:text-white font-bold rounded-xl transition duration-150 cursor-pointer"
+        {/* Fecha */}
+        <Controller
+          name="date"
+          control={control}
+          render={({ field }) => (
+            <TextField
+              {...field}
+              fullWidth
+              label="Fecha"
+              type="date"
+              InputLabelProps={{ shrink: true }}
+              error={!!errors.date}
+              helperText={errors.date?.message}
+              sx={{ bgcolor: inputBg }}
+            />
+          )}
+        />
+
+        {/* Botones */}
+        <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: theme.spacing(2), mt: theme.spacing(2) }}>
+          {onCancel && (
+            <Button onClick={onCancel} disabled={isSubmitting} sx={{ color: theme.palette.text.secondary }}>
+              Cancelar
+            </Button>
+          )}
+          <Button
+            type="submit"
+            variant="contained"
+            disabled={isSubmitting || loading}
+            sx={{
+              bgcolor: theme.custom.income,
+              color: theme.palette.common.white,
+              '&:hover': { bgcolor: theme.palette.success.dark },
+            }}
           >
-            Cancelar Edición
-          </button>
-        )}
-      </div>
-    </form>
-  );
-}
+            {isSubmitting ? <CircularProgress size={24} color="inherit" /> : initialData ? 'Guardar Cambios' : 'Crear Transacción'}
+          </Button>
+        </Box>
+      </Box>
+    );
+  }
+);
+
+TransactionForm.displayName = 'TransactionForm';

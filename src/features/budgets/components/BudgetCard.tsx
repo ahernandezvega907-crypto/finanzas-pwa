@@ -1,4 +1,6 @@
 import React, { useCallback } from 'react';
+import { Card, Typography, Box, Button, LinearProgress } from '@mui/material';
+import { useTheme } from '@mui/material/styles';
 import { Budget } from '../../../types/budget';
 
 interface BudgetCardProps {
@@ -16,8 +18,9 @@ export const BudgetCard = React.memo(function BudgetCard({
   onEdit,
   onDelete,
 }: BudgetCardProps) {
-  
-  // === OPTIMIZACIÓN: Callbacks estables que no se recrean si el objeto budget no cambia ===
+  const theme = useTheme();
+
+  // === OPTIMIZACIÓN: Callbacks estables ===
   const handleEdit = useCallback(() => {
     onEdit(budget);
   }, [onEdit, budget]);
@@ -26,49 +29,112 @@ export const BudgetCard = React.memo(function BudgetCard({
     onDelete(budget.id);
   }, [onDelete, budget.id]);
 
-  // CORRECCIÓN: Uso estricto del límite numérico configurado en la base de datos
+  // Lógica de cálculo numérico
   const progress = budget.limit_amount > 0 
     ? Math.min((spent / budget.limit_amount) * 100, 100) 
     : 0;
 
+  const isOverBudget = progress >= 100;
+
+  // Fallback seguro de TypeScript para operaciones aritméticas
+  const baseRadius = typeof theme.shape?.borderRadius === 'number' ? theme.shape.borderRadius : 8;
+
+  // Color de la alerta semántica
+  const getAlertColor = () => {
+    if (progress >= 100) return theme.custom?.expense || '#ef4444'; 
+    if (progress >= 80) return '#f59e0b'; 
+    return theme.custom?.income || '#10b981'; 
+  };
+
   return (
-    <div className="p-5 bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-100 dark:border-zinc-800/80 shadow-sm flex flex-col gap-3 transition-colors duration-200">
-      <div className="flex justify-between items-start">
-        <div>
-          <h4 className="font-semibold text-zinc-800 dark:text-zinc-200">{categoryName}</h4>
-          <p className="text-xs text-zinc-400">Límite: ${budget.limit_amount}</p>
-        </div>
-        <div className="flex gap-2">
-          <button 
-            onClick={handleEdit} 
-            className="text-xs text-blue-500 hover:text-blue-600 dark:hover:text-blue-400 font-medium transition-colors"
+    <Card
+      role="region"
+      aria-label={`Presupuesto de ${categoryName}`}
+      sx={{
+        p: 3,
+        backgroundColor: theme.custom?.card || 'background.paper',
+        borderRadius: `${baseRadius * 2}px`,
+        border: `1px solid ${isOverBudget ? 'rgba(239, 68, 68, 0.25)' : theme.custom?.border || 'rgba(0,0,0,0.08)'}`,
+        background: isOverBudget 
+          ? `linear-gradient(to right, rgba(239, 68, 68, 0.04), ${theme.custom?.card || '#ffffff'})`
+          : theme.custom?.card,
+        boxShadow: theme.shadows[1],
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 2,
+        transition: 'transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out',
+        '&:hover': {
+          transform: 'translateY(-2px)',
+          boxShadow: theme.shadows[3],
+        },
+      }}
+    >
+      {/* Cabecera */}
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+        <Box>
+          <Typography 
+            variant="subtitle1" 
+            sx={{ fontWeight: 600, color: 'text.primary', lineHeight: 1.2 }}
+          >
+            {categoryName}
+          </Typography>
+          <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+            Límite: ${budget.limit_amount}
+          </Typography>
+        </Box>
+        
+        {/* Botones de acción */}
+        <Box sx={{ display: 'flex', gap: 1 }}>
+          <Button 
+            size="small" 
+            onClick={handleEdit}
+            sx={{ textTransform: 'none', minWidth: 'auto', fontWeight: 600, color: 'primary.main' }}
           >
             Editar
-          </button>
-          <button 
-            onClick={handleDelete} 
-            className="text-xs text-rose-500 hover:text-rose-600 dark:hover:text-rose-400 font-medium transition-colors"
+          </Button>
+          <Button 
+            size="small" 
+            onClick={handleDelete}
+            sx={{ textTransform: 'none', minWidth: 'auto', fontWeight: 600, color: theme.custom?.expense || 'error.main' }}
           >
             Eliminar
-          </button>
-        </div>
-      </div>
+          </Button>
+        </Box>
+      </Box>
 
-      {/* Barra de Progreso */}
-      <div className="w-full bg-zinc-100 dark:bg-zinc-800 h-2 rounded-full overflow-hidden">
-        <div 
-          className={`h-full transition-all duration-500 ease-out ${
-            progress >= 100 ? 'bg-rose-500' : progress >= 80 ? 'bg-amber-500' : 'bg-emerald-500'
-          }`} 
-          style={{ width: `${progress}%` }}
+      {/* Barra de progreso */}
+      <Box sx={{ width: '100%' }}>
+        <LinearProgress
+          variant="determinate"
+          value={progress}
+          sx={{
+            height: 8,
+            borderRadius: 4,
+            backgroundColor: theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.04)',
+            '& .MuiLinearProgress-bar': {
+              borderRadius: 4,
+              backgroundColor: getAlertColor(),
+              transition: 'transform 0.4s ease-out',
+            },
+          }}
         />
-      </div>
-      <div className="flex justify-between text-xs text-zinc-500 dark:text-zinc-400">
-        <span>Gastado: ${spent}</span>
-        <span className={progress >= 100 ? 'text-rose-500 font-bold' : ''}>
+      </Box>
+
+      {/* Métricas e Info Inferior */}
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 500 }}>
+          Gastado: ${spent}
+        </Typography>
+        <Typography 
+          variant="caption" 
+          sx={{ 
+            fontWeight: isOverBudget ? 700 : 600, 
+            color: getAlertColor() 
+          }}
+        >
           {progress.toFixed(0)}%
-        </span>
-      </div>
-    </div>
+        </Typography>
+      </Box>
+    </Card>
   );
 });

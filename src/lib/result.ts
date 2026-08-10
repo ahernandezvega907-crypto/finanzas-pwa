@@ -1,8 +1,19 @@
 import { AppError } from './errors';
 
-export type Result<T, E = AppError> = 
-  | { success: true; data: T } 
-  | { success: false; error: E };
+export type Result<T> = 
+  | { success: true; data: T; error: null }
+  | { success: false; data: null; error: AppError };
 
-export const Ok = <T>(data: T): Result<T, never> => ({ success: true, data });
-export const Fail = <E = AppError>(error: E): Result<never, E> => ({ success: false, error });
+export const ResultUtils = {
+  ok: <T>(data: T): Result<T> => ({
+    success: true,
+    data,
+    error: null,
+  }),
+  
+  fail: <T>(error: AppError): Result<T> => ({
+    success: false,
+    data: null,
+    error,
+  }),
+};

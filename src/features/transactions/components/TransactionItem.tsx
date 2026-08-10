@@ -4,7 +4,7 @@ import { Transaction } from '../../../types/transaction';
 interface TransactionItemProps {
   transaction: Transaction;
   onEdit: (transaction: Transaction) => void;
-  onDelete: (id: string) => Promise<void>;
+  onDelete: (id: string) => void; // Alineado de forma sincrónica para el flujo optimista
 }
 
 export const TransactionItem = React.memo(function TransactionItem({
@@ -16,8 +16,7 @@ export const TransactionItem = React.memo(function TransactionItem({
 
   const isIncome = transaction.type === 'income';
 
-  // Memoizamos el formateo de la fecha. Evita instanciar objetos Date e hilos 
-  // de localización en cada re-render innecesario de la fila.
+  // Memoización del formateo de fecha intacta
   const formattedDate = useMemo(() => {
     if (!transaction.date) return '';
     try {
@@ -32,7 +31,7 @@ export const TransactionItem = React.memo(function TransactionItem({
     }
   }, [transaction.date]);
 
-  // Callbacks de acción completamente limpios y seguros
+  // Callbacks de acción
   const handleEditClick = useCallback(() => {
     onEdit(transaction);
   }, [onEdit, transaction]);
@@ -45,8 +44,8 @@ export const TransactionItem = React.memo(function TransactionItem({
     setIsConfirmingDelete(false);
   }, []);
 
-  const handleConfirmDelete = useCallback(async () => {
-    await onDelete(transaction.id);
+  const handleConfirmDelete = useCallback(() => {
+    onDelete(transaction.id);
     setIsConfirmingDelete(false);
   }, [onDelete, transaction.id]);
 
@@ -92,7 +91,7 @@ export const TransactionItem = React.memo(function TransactionItem({
                 isIncome ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'
               }`}
             >
-              {isIncome ? '+' : '-'}${transaction.amount.toFixed(2)}
+              {isIncome ? '+' : '-'}₡{transaction.amount.toFixed(2)}
             </div>
 
             <div className="flex space-x-1 shrink-0">

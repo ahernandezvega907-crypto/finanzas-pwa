@@ -12,11 +12,9 @@ import {
 import type { MonthlyReportItem } from '../types/reports';
 
 interface IncomeVsExpenseChartProps {
-  data: MonthlyReportItem[];
+  data?: MonthlyReportItem[];
 }
 
-// 💡 Optimizamos rendimiento moviendo los formateadores fuera del componente
-// para evitar que se re-instancien innecesariamente en memoria en cada renderizado.
 const formatCurrency = (value: number) => {
   return new Intl.NumberFormat('es-ES', {
     style: 'currency',
@@ -35,12 +33,16 @@ const formatMonth = (value: string) => {
   }
 };
 
-const IncomeVsExpenseChart = React.memo(function IncomeVsExpenseChart({ data }: IncomeVsExpenseChartProps) {
+export const IncomeVsExpenseChart = React.memo(function IncomeVsExpenseChart({ data }: IncomeVsExpenseChartProps) {
   return (
     <div className="w-full h-[350px] bg-slate-900 border border-slate-800 rounded-2xl p-5">
       <h4 className="text-base font-semibold text-white mb-4">Evolución Mensual (Ingresos vs Gastos)</h4>
       <div className="w-full h-[280px]">
-        {data.length === 0 ? (
+        {!data ? (
+          <div className="w-full h-full flex items-center justify-center text-slate-500 text-sm animate-pulse">
+            Cargando gráfico de evolución...
+          </div>
+        ) : data.length === 0 ? (
           <div className="w-full h-full flex items-center justify-center text-slate-500 text-sm">
             Sin datos en el periodo seleccionado
           </div>
@@ -87,14 +89,14 @@ const IncomeVsExpenseChart = React.memo(function IncomeVsExpenseChart({ data }: 
               <Bar
                 name="Ingresos"
                 dataKey="income"
-                fill="#10b981" // Emerald-500
+                fill="#10b981"
                 radius={[4, 4, 0, 0]}
                 maxBarSize={32}
               />
               <Bar
                 name="Gastos"
                 dataKey="expense"
-                fill="#f43f5e" // Rose-500
+                fill="#f43f5e"
                 radius={[4, 4, 0, 0]}
                 maxBarSize={32}
               />

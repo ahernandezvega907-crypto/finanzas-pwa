@@ -1,77 +1,65 @@
-import React, { useMemo } from 'react';
-import { Transaction } from '../../../types/transaction';
-import { TransactionItem } from './TransactionItem'; 
+import React from 'react';
+import { Transaction } from '../domain/transaction.types';
 
 interface TransactionListProps {
   transactions: Transaction[];
-  isLoading: boolean;
-  error: string | null;
+  loading: boolean;
   onEdit: (transaction: Transaction) => void;
-  onDelete: (id: string) => Promise<void>;
+  onDelete: (id: string) => void;
 }
 
-export const TransactionList = React.memo(function TransactionList({
+export const TransactionList: React.FC<TransactionListProps> = ({
   transactions,
-  isLoading,
-  error,
+  loading,
   onEdit,
   onDelete,
-}: TransactionListProps) {
-  
-  // Limita el renderizado del DOM a las últimas 100 transacciones si la lista se vuelve masiva.
-  // Esto previene degradación de rendimiento en dispositivos móviles antiguos.
-  const visibleTransactions = useMemo(() => {
-    return transactions.slice(0, 100);
-  }, [transactions]);
-
-  if (isLoading) {
-    return (
-      <div className="text-center py-8 text-gray-500 dark:text-gray-400 animate-pulse font-medium">
-        Cargando transacciones...
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="p-4 mb-4 text-sm text-red-800 rounded-lg bg-red-50 dark:bg-zinc-900/50 dark:text-red-400 text-center border border-red-100 dark:border-red-950/50">
-        ⚠️ Error: {error}
-      </div>
-    );
+}) => {
+  if (loading) {
+    return <div className="text-center py-4 text-gray-500 font-medium">Cargando transacciones...</div>;
   }
 
   if (transactions.length === 0) {
-    return (
-      <div className="text-center py-12 border-2 border-dashed border-gray-300 dark:border-zinc-800 rounded-2xl p-6">
-        <p className="text-gray-500 dark:text-gray-400 font-medium">No hay transacciones registradas aún.</p>
-        <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">Los movimientos que agregues aparecerán aquí.</p>
-      </div>
-    );
+    return <div className="text-center py-8 text-gray-400">No hay movimientos registrados.</div>;
   }
 
   return (
-    <div className="space-y-3 max-w-md mx-auto mt-6">
-      <div className="flex justify-between items-baseline px-1">
-        <h3 className="text-lg font-bold text-gray-800 dark:text-white">
-          Historial de Movimientos
-        </h3>
-        {transactions.length > 100 && (
-          <span className="text-xs text-gray-400">
-            Mostrando últimas 100
-          </span>
-        )}
-      </div>
-      
-      <div className="max-h-[400px] overflow-y-auto space-y-2 pr-1 scrollbar-thin">
-        {visibleTransactions.map((tx) => (
-          <TransactionItem
-            key={tx.id}
-            transaction={tx}
-            onEdit={onEdit}
-            onDelete={onDelete}
-          />
-        ))}
-      </div>
+    <div className="space-y-2">
+      {transactions.map((tx) => (
+        <div
+          key={tx.id}
+          className="flex items-center justify-between p-4 bg-white rounded-lg shadow-sm border border-gray-100 hover:shadow-md transition"
+        >
+          <div className="flex flex-col">
+            <span className="font-semibold text-gray-800">{tx.description}</span>
+            <span className="text-xs text-gray-400">{new Date(tx.date).toLocaleDateString()}</span>
+          </div>
+
+          <div className="flex items-center space-x-4">
+            <span
+              className={`font-bold ${
+                tx.type === 'income' ? 'text-green-600' : 'text-red-600'
+              }`}
+            >
+              {tx.type === 'income' ? '+' : '-'} ${tx.amount.toLocaleString()}
+            </span>
+            
+            <div className="flex space-x-1">
+              <button
+                onClick={() => onEdit(tx)}
+                className="p-1.5 text-blue-600 hover:bg-blue-50 rounded transition text-sm font-medium"
+              >
+                Editar
+              </button>
+              <button
+                onClick={() => onDelete(tx.id)}
+                className="p-1.5 text-red-600 hover:bg-red-50 rounded transition text-sm font-medium"
+              >
+                Eliminar
+              </button>
+            </div>
+          </div>
+        </div>
+      ))}
     </div>
   );
-});
+};

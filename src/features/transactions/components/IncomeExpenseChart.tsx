@@ -1,4 +1,6 @@
 import React, { useMemo } from 'react';
+import { Card, Typography, Box } from '@mui/material';
+import { useTheme } from '@mui/material/styles';
 import { useDashboardStats } from "../hooks/useDashboardStats";
 import type { Transaction } from "../../../types/transaction";
 
@@ -9,6 +11,7 @@ interface IncomeExpenseChartProps {
 export const IncomeExpenseChart = React.memo(function IncomeExpenseChart({ 
   transactions 
 }: IncomeExpenseChartProps) {
+  const theme = useTheme();
   const stats = useDashboardStats(transactions);
 
   // === OPTIMIZACIÓN Y CONTROL DE ERRORES: Cálculo seguro de porcentajes ===
@@ -23,31 +26,119 @@ export const IncomeExpenseChart = React.memo(function IncomeExpenseChart({
     };
   }, [stats.income, stats.expense]);
 
+  // Tokens seguros con fallbacks del tema base
+  const cardBg = theme.custom?.card ?? theme.palette.background.paper;
+  const borderColor = theme.custom?.border ?? theme.palette.divider;
+  const surfaceColor = theme.custom?.surface ?? theme.palette.background.default;
+  const incomeColor = theme.custom?.income ?? theme.palette.success.main;
+  const expenseColor = theme.custom?.expense ?? theme.palette.error.main;
+
   return (
-    <div className="rounded-2xl bg-zinc-900 p-6 border border-zinc-800">
-      <h2 className="mb-6 text-lg font-semibold text-white">Flujo financiero</h2>
-      <div className="h-5 w-full overflow-hidden rounded-full bg-zinc-800">
-        <div className="flex h-full">
-          <div
-            className="bg-green-500 transition-all duration-500"
-            style={{ width: `${incomePercentage}%` }}
+    <Card
+      sx={{
+        p: 3,
+        backgroundColor: cardBg,
+        borderRadius: `${theme.shape.borderRadius}px`,
+        border: `1px solid ${borderColor}`,
+        boxShadow: theme.shadows[1],
+      }}
+    >
+      <Typography
+        variant="h6"
+        sx={{
+          mb: 3,
+          fontWeight: 600,
+          color: theme.palette.text.primary,
+        }}
+      >
+        Flujo financiero
+      </Typography>
+
+      {/* Contenedor de la barra de progreso general */}
+      <Box
+        sx={{
+          height: 20,
+          width: '100%',
+          overflow: 'hidden',
+          borderRadius: 9999,
+          backgroundColor: surfaceColor,
+          display: 'flex',
+        }}
+      >
+        <Box
+          sx={{
+            height: '100%',
+            backgroundColor: incomeColor,
+            transition: 'all 500ms ease-in-out',
+            width: `${incomePercentage}%`,
+          }}
+        />
+        <Box
+          sx={{
+            height: '100%',
+            backgroundColor: expenseColor,
+            transition: 'all 500ms ease-in-out',
+            width: `${expensePercentage}%`,
+          }}
+        />
+      </Box>
+
+      {/* Leyendas informativas inferiores */}
+      <Box
+        sx={{
+          mt: 2.5,
+          display: 'flex',
+          justifyContent: 'space-between',
+        }}
+      >
+        {/* Indicador de Ingresos */}
+        <Box
+          component="span"
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 1.5,
+            fontSize: '0.875rem',
+            fontWeight: 500,
+            color: incomeColor,
+          }}
+        >
+          <Box
+            component="span"
+            sx={{
+              height: 8,
+              width: 8,
+              borderRadius: '50%',
+              backgroundColor: incomeColor,
+            }}
           />
-          <div
-            className="bg-red-500 transition-all duration-500"
-            style={{ width: `${expensePercentage}%` }}
-          />
-        </div>
-      </div>
-      <div className="mt-5 flex justify-between text-sm">
-        <span className="flex items-center gap-1.5 font-medium text-green-400">
-          <span className="h-2 w-2 rounded-full bg-green-500" />
           Ingresos: {incomePercentage.toFixed(1)}%
-        </span>
-        <span className="flex items-center gap-1.5 font-medium text-red-400">
-          <span className="h-2 w-2 rounded-full bg-red-500" />
+        </Box>
+
+        {/* Indicador de Gastos */}
+        <Box
+          component="span"
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 1.5,
+            fontSize: '0.875rem',
+            fontWeight: 500,
+            color: expenseColor,
+          }}
+        >
+          <Box
+            component="span"
+            sx={{
+              height: 8,
+              width: 8,
+              borderRadius: '50%',
+              backgroundColor: expenseColor,
+            }}
+          />
           Gastos: {expensePercentage.toFixed(1)}%
-        </span>
-      </div>
-    </div>
+        </Box>
+      </Box>
+    </Card>
   );
 });

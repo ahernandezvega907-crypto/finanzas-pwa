@@ -2,18 +2,17 @@ import { CategoryType } from './category';
 
 export interface Transaction {
   id: string;
-  profile_id: string;      // Ajustado con guion bajo
-  category_id: string | null; // Ajustado con guion bajo
+  profileId: string;
+  type: 'income' | 'expense';
+  categoryId: string;
   amount: number;
-  type: CategoryType;
-  description: string | null;
+  description: string;
   date: string;
   createdAt: string;
-  updated_at: string;
 }
 
 export interface CreateTransactionDTO {
-  category_id: string | null; // Ajustado con guion bajo
+  category_id: string | null;
   amount: number;
   type: CategoryType;
   description: string | null;

@@ -1,88 +1,68 @@
 import React, { Suspense, lazy } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
-import { useAuth } from '../hooks/useAuth';
-import { PageSkeleton } from '../components/ui/PageSkeleton';
+import { Box, CircularProgress } from '@mui/material';
+import { useAuth } from '../context/AuthContext';
+import { ProtectedRoute } from './ProtectedRoute';
 
-// Importaciones perezosas (Lazy Loading con las rutas reales del proyecto)
-const Login = lazy(() => import('../pages/Login'));
-const TransactionsPage = lazy(() => import('../pages/Dashboard'));
-const BudgetsPage = lazy(() => import('../pages/Budgets')); // ¡Corregido aquí! Apunta a Budgets.tsx
-const ReportsPage = lazy(() => import('../pages/ReportsPage'));
+import AppLayout from '../layouts/AppLayout';
+import Login from '../pages/Login';
 
-// Loader inicial de pantalla completa (solo para autenticación o carga fría)
-const PageLoader = () => (
-  <div className="min-h-screen w-full bg-zinc-950 flex items-center justify-center text-zinc-400 font-medium">
-    Cargando aplicación...
-  </div>
+// Carga perezosa (lazy) para optimización de bundles
+const PinLock = lazy(() => import('../pages/PinLock'));
+const Dashboard = lazy(() => import('../pages/Dashboard'));
+const Transactions = lazy(() => import('../pages/Transactions'));
+const Budgets = lazy(() => import('../pages/Budgets'));
+const Reports = lazy(() => import('../pages/Reports'));
+const Settings = lazy(() => import('../pages/Settings'));
+const AiGuru = lazy(() => import('../pages/AiGuru'));
+const NotFound = lazy(() => import('../pages/NotFound'));
+
+const LoadingFallback = () => (
+  <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '60vh' }}>
+    <CircularProgress size={40} color="primary" />
+  </Box>
 );
 
 export const AppRoutes: React.FC = () => {
   const { user, loading } = useAuth();
 
-  // Si está cargando la sesión inicial de Supabase, mostramos el loader principal
   if (loading) {
-    return <PageLoader />;
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
+        <CircularProgress color="primary" />
+      </Box>
+    );
   }
 
-  const isAuthenticated = !!user;
-
   return (
-    <Suspense fallback={<PageLoader />}>
+    <Suspense fallback={<LoadingFallback />}>
       <Routes>
-        {/* Ruta pública de Login */}
-        <Route 
-          path="/login" 
-          element={!isAuthenticated ? <Login /> : <Navigate to="/dashboard" replace />} 
-        />
+        {/* Rutas Públicas / Autenticación */}
+        <Route path="/login" element={!user ? <Login /> : <Navigate to="/" replace />} />
+        <Route path="/pin" element={<PinLock />} />
 
-        {/* Ruta privada del Dashboard (Transacciones) */}
-        <Route 
-          path="/dashboard" 
+        {/* Rutas Protegidas dentro del Layout Unificado */}
+        <Route
           element={
-            isAuthenticated ? (
-              <Suspense fallback={<PageSkeleton />}>
-                <TransactionsPage />
-              </Suspense>
-            ) : (
-              <Navigate to="/login" replace />
-            )
-          } 
-        />
+            <ProtectedRoute>
+              <AppLayout />
+            </ProtectedRoute>
+          }
+        >
+          <Route path="/" element={<Dashboard />} />
+          <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/transactions" element={<Transactions />} />
+          <Route path="/budgets" element={<Budgets />} />
+          <Route path="/reports" element={<Reports />} />
+          <Route path="/settings" element={<Settings />} />
+          <Route path="/ai-guru" element={<AiGuru />} />
+        </Route>
 
-        {/* Ruta privada de Presupuestos (Budgets) */}
-        <Route 
-          path="/budgets" 
-          element={
-            isAuthenticated ? (
-              <Suspense fallback={<PageSkeleton />}>
-                <BudgetsPage />
-              </Suspense>
-            ) : (
-              <Navigate to="/login" replace />
-            )
-          } 
-        />
-
-        {/* Ruta privada de Reportes (Reports) */}
-        <Route 
-          path="/reports" 
-          element={
-            isAuthenticated ? (
-              <Suspense fallback={<PageSkeleton />}>
-                <ReportsPage />
-              </Suspense>
-            ) : (
-              <Navigate to="/login" replace />
-            )
-          } 
-        />
-
-        {/* Ruta comodín para redirección */}
-        <Route 
-          path="*" 
-          element={<Navigate to={isAuthenticated ? "/dashboard" : "/login"} replace />} 
-        />
+        {/* Página 404 */}
+        <Route path="*" element={<NotFound />} />
       </Routes>
     </Suspense>
   );
 };
+
+export default AppRoutes;

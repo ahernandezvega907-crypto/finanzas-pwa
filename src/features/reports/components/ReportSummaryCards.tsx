@@ -2,8 +2,8 @@ import React from 'react';
 import type { ReportSummary, TrendReport } from '../types/reports';
 
 interface ReportSummaryCardsProps {
-  summary: ReportSummary;
-  trend: TrendReport;
+  summary?: ReportSummary; // 🛡️ Marcado como opcional para manejo defensivo
+  trend?: TrendReport;     // 🛡️ Marcado como opcional para manejo defensivo
 }
 
 // 1. Formateador de moneda extraído del render
@@ -40,6 +40,12 @@ export const ReportSummaryCards = React.memo(function ReportSummaryCards({
   summary, 
   trend 
 }: ReportSummaryCardsProps) {
+  
+  // 🛡️ Early Return: Si los datos globales aún no existen, evitamos lecturas de undefined
+  if (!summary || !trend) {
+    return null; 
+  }
+
   return (
     <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
       {/* CARD: INGRESOS */}

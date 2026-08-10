@@ -1,147 +1,137 @@
-import { useState, useCallback, useMemo } from 'react';
-import { Transaction, CreateTransactionDTO } from '../../../types/transaction';
-import { SupabaseTransactionRepository } from '../../../repositories/transaction.repository';
+import { useState, useEffect, useCallback } from 'react';
+import { useAuth } from '../../../context/AuthContext';
+import { Transaction, CreateTransactionInput } from '../domain/transaction.types';
+import { TransactionService } from '../services/transactions.service';
 
-const repository = new SupabaseTransactionRepository();
-
-export const useTransactions = () => {
+export function useTransactions() {
+  const { user } = useAuth();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [isLoading, setIsLoading] = useState<boolean>(false);
-  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState<boolean>(false);
+  const [error, setError] = useState<Error | null>(null);
   const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
 
-  // 1. Cargar transacciones (Protegido contra excepciones inesperadas)
-  const loadTransactions = useCallback(async (profileId: string) => {
-    setIsLoading(true);
-    setError(null);
-    try {
-      const result = await repository.getAllByProfile(profileId);
-      
-      if (result.success) {
-        setTransactions(result.data || []);
-      } else {
-        setError(result.error?.message || 'Error al cargar las transacciones');
-      }
-    } catch (err: any) {
-      setError(err.message || 'Excepción al obtener transacciones de base de datos');
-    } finally {
-      setIsLoading(false);
+  const loadTransactions = useCallback(async () => {
+    if (!user?.id) {
+      setTransactions([]);
+      return;
     }
-  }, []);
 
-  // 2. Crear transacción (UI Optimista)
-  const createTransaction = useCallback(async (profileId: string, dto: CreateTransactionDTO) => {
+    setLoading(true);
     setError(null);
-    
+    const result = await TransactionService.getTransactions(user.id);
+
+    if (result.success) {
+      setTransactions(result.data);
+    } else {
+      setError(result.error);
+    }
+    setLoading(false);
+  }, [user?.id]);
+
+  useEffect(() => {
+    loadTransactions();
+  }, [loadTransactions]);
+
+  const startEditing = (transaction: Transaction) => {
+    setSelectedTransaction(transaction);
+  };
+
+  const cancelEditing = () => {
+    setSelectedTransaction(null);
+  };
+
+  const createTransaction = async (dto: CreateTransactionInput) => {
+    if (!user?.id) {
+      setError(new Error('Usuario no autenticado.'));
+      return;
+    }
+
+    setError(null);
     const tempId = crypto.randomUUID();
+
     const tempTransaction: Transaction = {
       id: tempId,
-      profile_id: profileId,
-      category_id: dto.category_id,
-      amount: dto.amount,
+      profileId: user.id,
       type: dto.type,
-      description: dto.description,
+      categoryId: dto.categoryId,
+      amount: dto.amount,
+      description: dto.description || '',
       date: dto.date,
       createdAt: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
     };
 
     setTransactions((prev) => [tempTransaction, ...prev]);
 
-    try {
-      const result = await repository.create(profileId, dto);
+    const result = await TransactionService.addTransaction(user.id, dto);
 
-      if (result.success && result.data) {
-        setTransactions((prev) =>
-          prev.map((t) => (t.id === tempId ? result.data! : t))
-        );
-      } else {
-        setTransactions((prev) => prev.filter((t) => t.id !== tempId));
-        setError('No se pudo guardar la transacción. Se revirtieron los cambios.');
-      }
-    } catch {
+    if (result.success) {
+      setTransactions((prev) =>
+        prev.map((t) => (t.id === tempId ? result.data : t))
+      );
+    } else {
       setTransactions((prev) => prev.filter((t) => t.id !== tempId));
-      setError('Excepción de red al guardar. Se restauró el historial.');
+      setError(result.error);
     }
-  }, []);
+  };
 
-  // 3. Editar transacción (UI Optimista)
-  const updateTransaction = useCallback(async (id: string, dto: CreateTransactionDTO) => {
+  const updateTransaction = async (id: string, dto: Partial<CreateTransactionInput>) => {
+    if (!user?.id) {
+      setError(new Error('Usuario no autenticado.'));
+      return;
+    }
+
     setError(null);
-    let previousTransactions: Transaction[] = [];
+    const backupTransactions = [...transactions];
 
-    setTransactions((prev) => {
-      previousTransactions = [...prev]; 
-      return prev.map((t) => (t.id === id ? { ...t, ...dto } : t));
-    });
-    
+    const updatedFields: Partial<Transaction> = {};
+    if (dto.amount !== undefined) updatedFields.amount = dto.amount;
+    if (dto.type) updatedFields.type = dto.type;
+    if (dto.description !== undefined) updatedFields.description = dto.description;
+    if (dto.date) updatedFields.date = dto.date;
+    if (dto.categoryId) updatedFields.categoryId = dto.categoryId;
+
+    setTransactions((prev) =>
+      prev.map((t) => (t.id === id ? { ...t, ...updatedFields } : t))
+    );
     setSelectedTransaction(null);
 
-    try {
-      const result = await repository.update(id, dto);
+    const result = await TransactionService.updateTransaction(user.id, id, dto);
 
-      if (!result.success) {
-        setTransactions(previousTransactions);
-        setError('Error al actualizar la transacción. Se restauraron los datos.');
-      }
-    } catch {
-      setTransactions(previousTransactions);
-      setError('Fallo de red al actualizar la transacción.');
+    if (!result.success) {
+      setTransactions(backupTransactions);
+      setError(result.error);
     }
-  }, []);
+  };
 
-  // 4. Eliminar transacción (UI Optimista)
-  const deleteTransaction = useCallback(async (id: string) => {
+  const deleteTransaction = async (id: string) => {
+    if (!user?.id) {
+      setError(new Error('Usuario no autenticado.'));
+      return;
+    }
+
     setError(null);
-    let previousTransactions: Transaction[] = [];
+    const backupTransactions = [...transactions];
 
-    setTransactions((prev) => {
-      previousTransactions = [...prev]; 
-      return prev.filter((t) => t.id !== id);
-    });
+    setTransactions((prev) => prev.filter((t) => t.id !== id));
 
-    try {
-      const result = await repository.delete(id);
+    const result = await TransactionService.removeTransaction(user.id, id);
 
-      if (!result.success) {
-        setTransactions(previousTransactions);
-        setError('No se pudo eliminar la transacción de la base de datos.');
-      }
-    } catch {
-      setTransactions(previousTransactions);
-      setError('Fallo de red al eliminar la transacción.');
+    if (!result.success) {
+      setTransactions(backupTransactions);
+      setError(result.error);
     }
-  }, []);
+  };
 
-  const startEditing = useCallback((transaction: Transaction) => {
-    setSelectedTransaction(transaction);
-  }, []);
-
-  const cancelEditing = useCallback(() => {
-    setSelectedTransaction(null);
-  }, []);
-
-  return useMemo(() => ({
+  return {
     transactions,
-    isLoading,
+    loading,
     error,
     selectedTransaction,
-    loadTransactions,
     createTransaction,
     updateTransaction,
     deleteTransaction,
     startEditing,
     cancelEditing,
-  }), [
-    transactions,
-    isLoading,
-    error,
-    selectedTransaction,
-    loadTransactions,
-    createTransaction,
-    updateTransaction,
-    deleteTransaction,
-    startEditing,
-    cancelEditing
-  ]);
-};
+    refreshTransactions: loadTransactions,
+  };
+}

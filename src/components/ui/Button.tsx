@@ -2,7 +2,7 @@ import React, { forwardRef } from 'react';
 import { cva, type VariantProps } from 'class-variance-authority';
 import { cn } from '../../utils/cn';
 
-// 1. Definición de las variantes visuales acopladas a nuestros Design Tokens de Tailwind v4
+// 1. Declaración declarativa de variantes acopladas a los Design Tokens
 const buttonVariants = cva(
   "inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm font-medium transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-40 active:scale-[0.98]",
   {
@@ -31,7 +31,7 @@ const buttonVariants = cva(
   }
 );
 
-// 2. Tipado estricto extendiendo las propiedades de un botón nativo de HTML
+// 2. Tipado estricto de las Props heredando del botón nativo de HTML y variantes CVA
 export interface ButtonProps
   extends React.ButtonHTMLAttributes<HTMLButtonElement>,
     VariantProps<typeof buttonVariants> {
@@ -40,7 +40,7 @@ export interface ButtonProps
   rightIcon?: React.ReactNode;
 }
 
-// 3. Componente con ForwardRef para permitir control de foco externo o librerías de animaciones
+// 3. Componente con ForwardRef para inyección de focos externos (React 19 ready)
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
   ({ className, variant, size, fullWidth, isLoading, leftIcon, rightIcon, children, disabled, ...props }, ref) => {
     return (
@@ -70,12 +70,12 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
           </svg>
         )}
 
-        {/* Renderizado condicional de iconos respetando la accesibilidad */}
-        {!isLoading && leftIcon && <span className="flex items-center" aria-hidden="true">{leftIcon}</span>}
+        {/* Iconografía Semántica (ej. Lucide Icons pasados por props) */}
+        {!isLoading && leftIcon && <span className="flex items-center shrink-0" aria-hidden="true">{leftIcon}</span>}
         
         <span>{children}</span>
         
-        {!isLoading && rightIcon && <span className="flex items-center" aria-hidden="true">{rightIcon}</span>}
+        {!isLoading && rightIcon && <span className="flex items-center shrink-0" aria-hidden="true">{rightIcon}</span>}
       </button>
     );
   }

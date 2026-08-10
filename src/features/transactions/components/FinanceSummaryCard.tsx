@@ -1,35 +1,94 @@
 import React from 'react';
+import { Card, Typography } from '@mui/material';
+import { useTheme } from '@mui/material/styles';
 
 interface FinanceSummaryCardProps {
   title: string;
   value: string;
-  valueClassName?: string; // <-- Agregamos esta propiedad opcional para solucionar el error
-  type: 'income' | 'expense' | 'balance';
+  variant: 'income' | 'expense' | 'balance';
+  isNegativeBalance?: boolean;
 }
 
 export const FinanceSummaryCard = React.memo(function FinanceSummaryCard({
   title,
   value,
-  valueClassName = '',
-  type,
+  variant,
+  isNegativeBalance = false,
 }: FinanceSummaryCardProps) {
-  // Un icono o color base rápido según el tipo
-  const getBorderColor = () => {
-    switch (type) {
-      case 'income': return 'border-l-4 border-l-emerald-500';
-      case 'expense': return 'border-l-4 border-l-rose-500';
-      default: return 'border-l-4 border-l-zinc-400 dark:border-l-zinc-600';
-    }
+  const theme = useTheme();
+
+  // Colores de texto principales del valor
+  const getValueColor = () => {
+    if (variant === 'income') return theme.custom?.income ?? theme.palette.success.main;
+    if (variant === 'expense') return theme.custom?.expense ?? theme.palette.error.main;
+    return isNegativeBalance
+      ? (theme.custom?.expense ?? theme.palette.error.main)
+      : (theme.custom?.income ?? theme.palette.success.main);
   };
 
+  // Color del borde decorativo izquierdo
+  const getBorderColor = () => {
+    if (variant === 'income') return theme.custom?.income ?? theme.palette.success.main;
+    if (variant === 'expense') return theme.custom?.expense ?? theme.palette.error.main;
+    return isNegativeBalance
+      ? (theme.custom?.expense ?? theme.palette.error.main)
+      : (theme.custom?.border ?? theme.palette.divider);
+  };
+
+  // === ALERTA INTELIGENTE: Fondo dinámico basado en el estado financiero ===
+  const getCardBackground = () => {
+    const safeCardBg = theme.custom?.card ?? theme.palette.background.paper;
+    if (variant === 'balance' && isNegativeBalance) {
+      // Fondo sutil rojizo/gasto para alertar balance negativo sin estridencias
+      return `linear-gradient(to right, rgba(239, 68, 68, 0.08), ${safeCardBg})`;
+    }
+    return safeCardBg;
+  };
+
+  const safeBorderColor = theme.custom?.border ?? theme.palette.divider;
+
   return (
-    <div className={`p-5 bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-100 dark:border-zinc-800/80 shadow-sm flex flex-col gap-1 ${getBorderColor()}`}>
-      <span className="text-xs font-medium text-zinc-400 dark:text-zinc-500 uppercase tracking-wider">
+    <Card
+      role="region"
+      aria-label={`${title}: ${value}`}
+      sx={{
+        p: 3,
+        background: getCardBackground(),
+        borderRadius: `${theme.shape.borderRadius}px`,
+        border: `1px solid ${variant === 'balance' && isNegativeBalance ? 'rgba(239, 68, 68, 0.25)' : safeBorderColor}`,
+        borderLeft: `4px solid ${getBorderColor()}`,
+        boxShadow: theme.shadows[1],
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 0.5,
+        transition: 'transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out',
+        '&:hover': {
+          transform: 'translateY(-2px)',
+          boxShadow: theme.shadows[3],
+        },
+      }}
+    >
+      <Typography
+        variant="caption"
+        sx={{
+          fontWeight: 600,
+          color: theme.palette.text.secondary,
+          textTransform: 'uppercase',
+          letterSpacing: '0.08em',
+        }}
+      >
         {title}
-      </span>
-      <span className={`text-2xl font-bold tracking-tight ${valueClassName}`}>
+      </Typography>
+      <Typography
+        variant="h4"
+        sx={{
+          fontWeight: 700,
+          color: getValueColor(),
+          letterSpacing: '-0.02em',
+        }}
+      >
         {value}
-      </span>
-    </div>
+      </Typography>
+    </Card>
   );
 });

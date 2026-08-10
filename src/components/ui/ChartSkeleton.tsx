@@ -1,27 +1,39 @@
-import React from "react";
+import React from 'react';
+import { Box, Skeleton } from '@mui/material';
 
-export const ChartSkeleton = React.memo(function ChartSkeleton() {
+export const ChartSkeleton: React.FC = React.memo(() => {
   return (
-    <div className="rounded-2xl border border-zinc-800 bg-zinc-900 p-6 animate-pulse">
-      {/* Título de la tarjeta */}
-      <div className="h-6 w-40 rounded bg-zinc-800 mb-6" />
-
-      {/* Área del Gráfico */}
-      <div className="h-72 rounded-xl bg-zinc-800/50 flex items-center justify-center">
-        <div className="h-12 w-12 rounded-full border-4 border-zinc-700 border-t-transparent animate-spin" />
-      </div>
-
-      {/* Leyendas inferiores */}
-      <div className="mt-6 flex justify-center gap-3">
-        {Array.from({ length: 4 }).map((_, index) => (
-          <div
-            key={index}
-            className="h-3 w-16 rounded bg-zinc-800"
-          />
-        ))}
-      </div>
-    </div>
+    <Box 
+      sx={{ 
+        p: 3,
+        backgroundColor: (theme: any) => theme.custom?.card || 'background.paper',
+        borderRadius: (theme) => `${theme.shape?.borderRadius || 8}px`,
+        boxShadow: (theme) => theme.shadows[1],
+        border: 1,
+        borderColor: (theme: any) => theme.custom?.border || 'rgba(0,0,0,0.08)',
+        width: '100%',
+        height: 350,
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 2
+      }}
+    >
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <Skeleton variant="text" width={140} height={24} animation="wave" />
+        <Skeleton variant="rectangular" width={80} height={28} sx={{ borderRadius: 1 }} animation="wave" />
+      </Box>
+      <Skeleton 
+        variant="rectangular" 
+        width="100%" 
+        height="100%" 
+        animation="wave"
+        sx={{ 
+          borderRadius: (theme) => `${theme.shape?.borderRadius || 8}px`,
+          flexGrow: 1 
+        }} 
+      />
+    </Box>
   );
 });
 
-export default ChartSkeleton;
+ChartSkeleton.displayName = 'ChartSkeleton';

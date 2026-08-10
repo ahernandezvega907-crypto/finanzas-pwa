@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { offlineStorage } from '../utils/offlineStorage';
-import { supabase } from '../supabaseClient';
+import { supabase } from '../lib/supabase';
 
 export function useOfflineSync() {
   const [isOnline, setIsOnline] = useState<boolean>(() => navigator.onLine);

@@ -1,129 +1,155 @@
-import { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
+import {
+  Box,
+  Container,
+  Typography,
+  Grid,
+  Card,
+  CardContent,
+  Skeleton,
+  Button
+} from '@mui/material';
+import TrendingUpIcon from '@mui/icons-material/TrendingUp';
+import TrendingDownIcon from '@mui/icons-material/TrendingDown';
+import AccountBalanceWalletIcon from '@mui/icons-material/AccountBalanceWallet';
+import AddIcon from '@mui/icons-material/Add';
+import { useAuth } from '../context/AuthContext';
+import { transactionsRepository } from '../features/transactions/repositories/transactions.repository';
 import { useNavigate } from 'react-router-dom';
-// Hooks de la feature
-import { useTransactions } from '../features/transactions/hooks/useTransactions';
-import { useDashboardStats } from '../features/transactions/hooks/useDashboardStats'; 
-// Componentes de la feature
-import { TransactionForm } from '../features/transactions/components/TransactionForm';
-import { TransactionList } from '../features/transactions/components/TransactionList';
-import { SummaryCards } from '../features/transactions/components/SummaryCards';
-import { IncomeExpenseChart } from '../features/transactions/components/IncomeExpenseChart';
-// Auth global
-import { useAuth } from '../hooks/useAuth';
 
-export default function Dashboard() {
-  const { user, signOut } = useAuth();
+export const DashboardView: React.FC = () => {
+  const { user } = useAuth();
   const navigate = useNavigate();
-  const activeProfileId = user?.id;
-
-  // Extraemos todas las funciones de nuestro hook
-  const { 
-    transactions, 
-    isLoading, 
-    error, 
-    selectedTransaction,
-    loadTransactions, 
-    createTransaction,
-    updateTransaction,
-    deleteTransaction,
-    startEditing,
-    cancelEditing
-  } = useTransactions();
-
-  // === SOLUCIÓN TYPE ERROR: Calculamos las estadísticas usando el hook unificado ===
-  const dashboardStats = useDashboardStats(transactions || []);
+  const [loading, setLoading] = useState(true);
+  const [income, setIncome] = useState(0);
+  const [expenses, setExpenses] = useState(0);
 
   useEffect(() => {
-    if (activeProfileId) {
-      loadTransactions(activeProfileId);
-    }
-  }, [activeProfileId, loadTransactions]);
+    const fetchMetrics = async () => {
+      if (!user?.id) return;
+      setLoading(true);
+      try {
+        const data = await transactionsRepository.getAll(user.id);
+        
+        let totalIncome = 0;
+        let totalExpenses = 0;
 
-  // Maneja tanto la creación como la actualización
-  const handleFormSubmit = async (formData: any) => {
-    if (!activeProfileId) return;
+        data.forEach((tx: any) => {
+          const val = Number(tx.amount || 0);
+          if (tx.type === 'income') {
+            totalIncome += val;
+          } else if (tx.type === 'expense') {
+            totalExpenses += val;
+          }
+        });
 
-    const dateOnly = formData.date.split('T')[0]; 
-
-    const formattedData = {
-      ...formData,
-      date: dateOnly,
-      category_id: formData.category_id && formData.category_id.trim() !== "" ? formData.category_id : null,
-      amount: parseFloat(formData.amount),
+        setIncome(totalIncome);
+        setExpenses(totalExpenses);
+      } catch (err) {
+        console.error('Error al cargar datos del dashboard:', err);
+      } finally {
+        setLoading(false);
+      }
     };
-    
-    if (selectedTransaction) {
-      // Si hay una transacción seleccionada, disparamos la actualización
-      await updateTransaction(selectedTransaction.id, formattedData);
-    } else {
-      // Si no, es una creación normal
-      await createTransaction(activeProfileId, formattedData);
-    }
-  };
 
-  // Maneja el Cierre de Sesión forzado para regresar al Login
-  const handleLogout = async () => {
-    if (signOut) {
-      await signOut();
-    }
-    navigate('/login');
-  };
+    fetchMetrics();
+  }, [user?.id]);
+
+  const balance = income - expenses;
 
   return (
-    <div className="min-h-screen bg-gray-100 dark:bg-zinc-950 py-8 px-4 font-sans transition-colors duration-200">
-      
-      {/* 1. Cabecera */}
-      <header className="max-w-6xl mx-auto mb-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-extrabold text-gray-900 dark:text-white">Flujo de dinero</h1>
-          <p className="text-sm text-gray-500 dark:text-gray-400">Panel de Control de Transacciones</p>
-        </div>
-        <button
-          onClick={handleLogout}
-          className="self-start sm:self-center bg-red-600 hover:bg-red-700 text-white font-medium text-sm px-4 py-2 rounded-xl shadow-sm transition-colors duration-150"
+    <Container maxWidth="lg" sx={{ py: 3 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 4 }}>
+        <Box>
+          <Typography variant="h4" sx={{ fontWeight: 'bold' }}>
+            Dashboard
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            Resumen de tu salud financiera en tiempo real
+          </Typography>
+        </Box>
+        <Button
+          variant="contained"
+          startIcon={<AddIcon />}
+          onClick={() => navigate('/transactions')}
+          sx={{ borderRadius: 3, textTransform: 'none', fontWeight: 'bold' }}
         >
-          Cerrar Sesión
-        </button>
-      </header>
+          Nueva Transacción
+        </Button>
+      </Box>
 
-      <div className="max-w-6xl mx-auto space-y-8">
-        
-        {/* 2. Tarjetas de Resumen (CORREGIDO: Pasamos "stats" en lugar de "transactions") */}
-        <SummaryCards stats={dashboardStats} />
+      <Grid container spacing={3} sx={{ mb: 4 }}>
+        {/* Balance Total */}
+        <Grid size={{ xs: 12, md: 4 }}>
+          <Card sx={{ borderRadius: 3, p: 1, bgcolor: 'background.paper', border: '1px solid', borderColor: 'divider' }}>
+            <CardContent sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+              <Box sx={{ p: 1.5, borderRadius: 2, bgcolor: 'primary.dark', color: 'primary.contrastText', display: 'flex' }}>
+                <AccountBalanceWalletIcon fontSize="large" />
+              </Box>
+              <Box>
+                <Typography variant="caption" color="text.secondary">
+                  Balance Total
+                </Typography>
+                {loading ? (
+                  <Skeleton width={100} height={35} />
+                ) : (
+                  <Typography variant="h5" sx={{ fontWeight: 'bold' }}>
+                    ₡{balance.toLocaleString()}
+                  </Typography>
+                )}
+              </Box>
+            </CardContent>
+          </Card>
+        </Grid>
 
-        {/* 3. Estructura de contenido en tres columnas */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
-          
-          {/* Columna Izquierda/Central (Gráfico e Historial) */}
-          <div className="lg:col-span-2 space-y-8">
-            {/* Gráfico Dinámico */}
-            <IncomeExpenseChart transactions={transactions || []} />
-            
-            <section className="bg-white dark:bg-zinc-900 rounded-2xl p-6 border border-zinc-200 dark:border-zinc-800 shadow-sm">
-              <h2 className="text-lg font-bold text-gray-900 dark:text-white mb-4">Historial de Actividad</h2>
-              <TransactionList 
-                transactions={transactions || []} 
-                isLoading={isLoading} 
-                error={error} 
-                onEdit={startEditing}
-                onDelete={deleteTransaction}
-              />
-            </section>
-          </div>
+        {/* Ingresos */}
+        <Grid size={{ xs: 12, sm: 6, md: 4 }}>
+          <Card sx={{ borderRadius: 3, p: 1, bgcolor: 'background.paper', border: '1px solid', borderColor: 'divider' }}>
+            <CardContent sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+              <Box sx={{ p: 1.5, borderRadius: 2, bgcolor: 'success.dark', color: 'common.white', display: 'flex' }}>
+                <TrendingUpIcon fontSize="large" />
+              </Box>
+              <Box>
+                <Typography variant="caption" color="text.secondary">
+                  Ingresos
+                </Typography>
+                {loading ? (
+                  <Skeleton width={100} height={35} />
+                ) : (
+                  <Typography variant="h5" sx={{ fontWeight: 'bold', color: 'success.main' }}>
+                    ₡{income.toLocaleString()}
+                  </Typography>
+                )}
+              </Box>
+            </CardContent>
+          </Card>
+        </Grid>
 
-          {/* Columna Derecha (Formulario para Registrar/Editar) */}
-          {/* CORREGIDO: El contenedor no tiene títulos duplicados ya que TransactionForm se encarga de mostrar su propio encabezado */}
-          <section className="lg:col-span-1 bg-white dark:bg-zinc-900 rounded-2xl p-6 border border-zinc-200 dark:border-zinc-800 shadow-sm sticky lg:top-6">
-            <TransactionForm 
-              onSubmitSuccess={handleFormSubmit} 
-              isLoading={isLoading} 
-              transaction={selectedTransaction}
-              onCancelEdit={cancelEditing}
-            />
-          </section>
-
-        </div>
-      </div>
-    </div>
+        {/* Gastos */}
+        <Grid size={{ xs: 12, sm: 6, md: 4 }}>
+          <Card sx={{ borderRadius: 3, p: 1, bgcolor: 'background.paper', border: '1px solid', borderColor: 'divider' }}>
+            <CardContent sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+              <Box sx={{ p: 1.5, borderRadius: 2, bgcolor: 'error.dark', color: 'common.white', display: 'flex' }}>
+                <TrendingDownIcon fontSize="large" />
+              </Box>
+              <Box>
+                <Typography variant="caption" color="text.secondary">
+                  Gastos
+                </Typography>
+                {loading ? (
+                  <Skeleton width={100} height={35} />
+                ) : (
+                  <Typography variant="h5" sx={{ fontWeight: 'bold', color: 'error.main' }}>
+                    ₡{expenses.toLocaleString()}
+                  </Typography>
+                )}
+              </Box>
+            </CardContent>
+          </Card>
+        </Grid>
+      </Grid>
+    </Container>
   );
-}
+};
+
+export default DashboardView;

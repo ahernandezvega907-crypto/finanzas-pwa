@@ -1,54 +1,118 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useMemo } from 'react';
+import { Card, Typography, Box, Skeleton } from '@mui/material';
+import { useTheme } from '@mui/material/styles';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 import type { CategoryReportItem } from '../types/reports';
 
 interface CategoryDistributionChartProps {
-  data: CategoryReportItem[];
+  data?: CategoryReportItem[]; // 🛡️ Opcional para tolerar estados de carga iniciales
 }
 
-// 1. Constante de colores estática fuera del componente
-const COLORS = [
-  '#6366f1', // Indigo
-  '#ec4899', // Pink
-  '#f59e0b', // Amber
-  '#3b82f6', // Blue
-  '#14b8a6', // Teal
-  '#8b5cf6', // Violet
-  '#06b6d4', // Cyan
-  '#10b981', // Emerald
-];
-
-// 2. Formateador estático extraído fuera del renderizado
 const formatCurrency = (value: number) => {
-  return new Intl.NumberFormat('es-ES', {
+  return new Intl.NumberFormat('es-MX', {
     style: 'currency',
-    currency: 'USD',
+    currency: 'MXN',
     minimumFractionDigits: 2,
   }).format(value);
 };
 
-// 3. Envoltura estricta con React.memo
 export const CategoryDistributionChart = React.memo(function CategoryDistributionChart({ 
   data 
 }: CategoryDistributionChartProps) {
+  const theme = useTheme();
 
-  // 4. Formateador de tooltip con referencia estable para evitar parpadeos en Recharts
+  // 1. Paleta dinámica con fallbacks seguros (??) en caso de que theme.custom no esté inicializado todavía
+  const CHART_COLORS = useMemo(() => [
+    theme.custom?.premium ?? '#8b5cf6',
+    theme.custom?.income ?? '#10b981',
+    theme.palette.primary.main,
+    theme.custom?.warning ?? '#f59e0b',
+    theme.palette.secondary.main,
+    theme.custom?.expense ?? '#f43f5e',
+  ], [theme]);
+
   const tooltipFormatter = useCallback((value: unknown) => {
     return [formatCurrency(Number(value)), ''];
   }, []);
 
+  // 🛡️ Early Return: Si 'data' no se ha definido (llamada asíncrona activa), mostramos un esqueleto visual
+  if (!data) {
+    return (
+      <Card
+        sx={{
+          width: '100%',
+          height: 350,
+          backgroundColor: theme.custom?.card ?? 'background.paper',
+          border: `1px solid ${theme.custom?.border ?? 'divider'}`,
+          borderRadius: `${theme.shape.borderRadius}px`,
+          p: 3,
+          boxShadow: theme.shadows[1],
+        }}
+      >
+        <Skeleton variant="text" width="60%" height={32} sx={{ mb: 2 }} />
+        <Box sx={{ display: 'flex', gap: 4, height: 240, alignItems: 'center' }}>
+          <Skeleton variant="circular" width={160} height={160} />
+          <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 1 }}>
+            <Skeleton variant="rectangular" height={20} />
+            <Skeleton variant="rectangular" height={20} />
+            <Skeleton variant="rectangular" height={20} />
+          </Box>
+        </Box>
+      </Card>
+    );
+  }
+
   return (
-    <div className="w-full h-[350px] bg-slate-900 border border-slate-800 rounded-2xl p-5">
-      <h4 className="text-base font-semibold text-white mb-2">Distribución de Gastos</h4>
-      <div className="grid grid-cols-1 md:grid-cols-2 h-[280px] items-center">
+    <Card
+      sx={{
+        width: '100%',
+        height: 350,
+        backgroundColor: theme.custom?.card ?? 'background.paper',
+        border: `1px solid ${theme.custom?.border ?? 'divider'}`,
+        borderRadius: `${theme.shape.borderRadius}px`,
+        p: 3,
+        boxShadow: theme.shadows[1],
+      }}
+    >
+      <Typography
+        variant="h6"
+        sx={{
+          fontSize: '1rem',
+          fontWeight: 600,
+          color: theme.palette.text.primary,
+          mb: 1,
+        }}
+      >
+        Distribución de Gastos
+      </Typography>
+
+      <Box
+        sx={{
+          display: 'grid',
+          gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' },
+          height: 280,
+          alignItems: 'center',
+        }}
+      >
         {data.length === 0 ? (
-          <div className="col-span-2 w-full h-full flex items-center justify-center text-slate-500 text-sm">
+          <Box
+            sx={{
+              gridColumn: 'span 2',
+              width: '100%',
+              height: '100%',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: theme.palette.text.secondary,
+              fontSize: '0.875rem',
+            }}
+          >
             Sin datos de gastos en este periodo
-          </div>
+          </Box>
         ) : (
           <>
             {/* Gráfico circular */}
-            <div className="w-full h-[220px]">
+            <Box sx={{ width: '100%', height: 220 }}>
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
                   <Pie
@@ -61,45 +125,104 @@ export const CategoryDistributionChart = React.memo(function CategoryDistributio
                     dataKey="amount"
                     nameKey="categoryName"
                   >
-                    {data.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                    {data.map((item, index) => (
+                      <Cell 
+                        key={`pie-cell-${item.categoryId ?? item.categoryName ?? index}`} // 🛡️ Respaldo de clave único contra undefined
+                        fill={CHART_COLORS[index % CHART_COLORS.length]} 
+                      />
                     ))}
                   </Pie>
                   <Tooltip
                     contentStyle={{
-                      backgroundColor: '#0f172a',
-                      border: '1px solid #334155',
-                      borderRadius: '12px',
-                      color: '#fff',
+                      backgroundColor: theme.custom?.surface ?? '#0f172a',
+                      border: `1px solid ${theme.custom?.border ?? '#334155'}`,
+                      borderRadius: `${theme.shape.borderRadius}px`,
+                      color: theme.palette.text.primary,
                     }}
                     formatter={tooltipFormatter}
                   />
                 </PieChart>
               </ResponsiveContainer>
-            </div>
+            </Box>
 
-            {/* Listado de leyendas con scroll si son demasiadas */}
-            <div className="overflow-y-auto max-h-[220px] pr-2 space-y-2">
+            {/* Listado de leyendas con scroll */}
+            <Box
+              sx={{
+                overflowY: 'auto',
+                maxHeight: 220,
+                pr: 1,
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 1,
+                '&::-webkit-scrollbar': { width: '4px' },
+                '&::-webkit-scrollbar-thumb': { backgroundColor: theme.custom?.border ?? 'divider', borderRadius: '4px' }
+              }}
+            >
               {data.map((item, index) => {
-                const color = COLORS[index % COLORS.length];
+                const color = CHART_COLORS[index % CHART_COLORS.length];
                 return (
-                  <div key={item.categoryId} className="flex items-center justify-between text-xs">
-                    <div className="flex items-center gap-2 truncate">
-                      <span className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: color }} />
-                      <span className="text-slate-300 font-medium truncate">{item.categoryName}</span>
-                    </div>
-                    <div className="text-right shrink-0">
-                      <span className="text-white font-semibold">{formatCurrency(item.amount)}</span>
-                      <span className="text-slate-500 ml-1.5">({item.percentage}%)</span>
-                    </div>
-                  </div>
+                  <Box
+                    key={`legend-row-${item.categoryId ?? item.categoryName ?? index}`} // 🛡️ Respaldo idéntico para corregir el warning de Styled(div)
+                    sx={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      fontSize: '0.75rem',
+                    }}
+                  >
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 0 }}>
+                      <Box
+                        component="span"
+                        sx={{
+                          width: 12,
+                          height: 12,
+                          borderRadius: '50%',
+                          flexShrink: 0,
+                          backgroundColor: color,
+                        }}
+                      />
+                      <Typography
+                        variant="body2"
+                        noWrap
+                        sx={{
+                          fontSize: '0.75rem',
+                          color: theme.palette.text.secondary,
+                          fontWeight: 500,
+                        }}
+                      >
+                        {item.categoryName}
+                      </Typography>
+                    </Box>
+                    <Box sx={{ textAlign: 'right', flexShrink: 0 }}>
+                      <Typography
+                        component="span"
+                        sx={{
+                          fontSize: '0.75rem',
+                          color: theme.palette.text.primary,
+                          fontWeight: 600,
+                        }}
+                      >
+                        {formatCurrency(item.amount)}
+                      </Typography>
+                      <Typography
+                        component="span"
+                        sx={{
+                          fontSize: '0.75rem',
+                          color: theme.palette.text.secondary,
+                          ml: 1,
+                        }}
+                      >
+                        ({item.percentage}%)
+                      </Typography>
+                    </Box>
+                  </Box>
                 );
               })}
-            </div>
+            </Box>
           </>
         )}
-      </div>
-    </div>
+      </Box>
+    </Card>
   );
 });
 

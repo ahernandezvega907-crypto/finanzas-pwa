@@ -1,89 +1,34 @@
-import React, { createContext, useState, ReactNode, useMemo, useCallback } from 'react';
+// src/context/FinanceContext.tsx
+import React, { createContext, useState, useEffect } from 'react';
+import { useAuth } from '../hooks/useAuth';
 
-export interface TransactionToken {
-  id: string;
-  amount: number;
-  type: 'income' | 'expense';
-  category: string;
-  date: string;
-}
-
-export interface FinanceContextType {
-  transactions: TransactionToken[];
+interface FinanceContextType {
   isSyncing: boolean;
-  totalIncome: number;
-  totalExpenses: number;
-  balance: number;
-  addTransaction: (transaction: Omit<TransactionToken, 'id'>) => void;
-  deleteTransaction: (id: string) => void;
-  syncData: () => Promise<void>;
+  refreshData: () => Promise<void>;
 }
 
 export const FinanceContext = createContext<FinanceContextType | undefined>(undefined);
 
-export const FinanceProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const [transactions, setTransactions] = useState<TransactionToken[]>([]);
+export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { user } = useAuth(); // Usamos 'user' en lugar de 'isAuthenticated'
   const [isSyncing, setIsSyncing] = useState<boolean>(false);
 
-  // Operaciones de mutación de estado atómicas y estables
-  const addTransaction = useCallback((newTx: Omit<TransactionToken, 'id'>) => {
-    setTransactions((prev) => [
-      ...prev,
-      {
-        ...newTx,
-        id: crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2, 9),
-      },
-    ]);
-  }, []);
-
-  const deleteTransaction = useCallback((id: string) => {
-    setTransactions((prev) => prev.filter((tx) => tx.id !== id));
-  }, []);
-
-  const syncData = useCallback(async () => {
+  const refreshData = async () => {
+    if (!user) return; // Si no hay usuario, cancelamos la sincronización
     setIsSyncing(true);
-    try {
-      // Punto de anclaje listo para llamadas en tiempo real de Supabase gRPC / WebSockets o IndexedDB
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-    } finally {
-      setIsSyncing(false);
+    // Simulación de retraso de red para la PWA
+    await new Promise((resolve) => setTimeout(resolve, 800)); 
+    setIsSyncing(false);
+  };
+
+  useEffect(() => {
+    if (user) {
+      refreshData();
     }
-  }, []);
-
-  // 💡 NIVEL 3: Selectores Derivados Memoizados de alto rendimiento.
-  // Solo se recalculan si el array de transacciones cambia de referencia.
-  const totals = useMemo(() => {
-    return transactions.reduce(
-      (acc, tx) => {
-        if (tx.type === 'income') {
-          acc.income += tx.amount;
-        } else {
-          acc.expenses += tx.amount;
-        }
-        return acc;
-      },
-      { income: 0, expenses: 0 }
-    );
-  }, [transactions]);
-
-  const balance = useMemo(() => {
-    return totals.income - totals.expenses;
-  }, [totals]);
-
-  // Generación del value del proveedor altamente estable
-  const contextValue = useMemo<FinanceContextType>(() => ({
-    transactions,
-    isSyncing,
-    totalIncome: totals.income,
-    totalExpenses: totals.expenses,
-    balance,
-    addTransaction,
-    deleteTransaction,
-    syncData,
-  }), [transactions, isSyncing, totals, balance, addTransaction, deleteTransaction, syncData]);
+  }, [user]);
 
   return (
-    <FinanceContext.Provider value={contextValue}>
+    <FinanceContext.Provider value={{ isSyncing, refreshData }}>
       {children}
     </FinanceContext.Provider>
   );

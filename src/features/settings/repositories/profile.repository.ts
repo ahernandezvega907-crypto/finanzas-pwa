@@ -1,4 +1,4 @@
-import { supabase } from '../../../supabaseClient';
+import { supabase } from '../../../lib/supabase';
 import { AppError } from '../../../lib/errors';
 import { Fail, Ok, Result } from '../../../lib/result';
 import {

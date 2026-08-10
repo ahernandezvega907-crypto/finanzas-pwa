@@ -5,6 +5,10 @@ export interface User {
 }
 
 // Estos comandos le dicen al index que agarre todo lo de los otros archivos y lo exporte aquí de golpe
+// Centralización indexada de tipos de MoneyFlow
+export * from './auth';
 export * from './category';
 export * from './transaction';
+export * from './profile';
 export * from './budget';
+export * from './result';

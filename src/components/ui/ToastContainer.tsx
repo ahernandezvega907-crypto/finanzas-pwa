@@ -4,7 +4,7 @@ import { useNotification } from '../../hooks/useNotification';
 export const ToastContainer: React.FC = () => {
   const { notifications, dismissNotification } = useNotification();
 
-  if (notifications.length === 0) return null;
+  if (!notifications || notifications.length === 0) return null;
 
   return (
     <div 
@@ -12,7 +12,7 @@ export const ToastContainer: React.FC = () => {
       role="status" 
       aria-live="polite"
     >
-      {notifications.map((n) => (
+      {notifications?.map((n: { id: string; message: string; type: string }) => (
         <div
           key={n.id}
           className={`pointer-events-auto p-4 rounded-xl shadow-xl border text-sm font-medium transition-all duration-300 flex justify-between items-center bg-zinc-900/95 backdrop-blur-sm animate-in fade-in slide-in-from-top-4 ${
@@ -28,7 +28,7 @@ export const ToastContainer: React.FC = () => {
             className="ml-4 text-zinc-500 hover:text-zinc-200 transition-colors duration-150 text-base font-bold cursor-pointer p-1" 
             aria-label="Cerrar notificación"
           >
-            &times; {/* 👈 Corregido: Símbolo de multiplicación limpio y seguro */}
+            &times;
           </button>
         </div>
       ))}

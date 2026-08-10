@@ -1,118 +1,158 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Button } from '../components/ui/Button';
-import { Input } from '../components/ui/Input';
-import { useAuth } from '../hooks/useAuth';
+import {
+  Box,
+  Card,
+  TextField,
+  Button,
+  Typography,
+  Alert,
+  CircularProgress,
+  Tabs,
+  Tab,
+} from '@mui/material';
+import { useAuth } from '../context/AuthContext';
 
-export default function Login() {
-  // Extraemos tanto login como register desde tu hook personalizado
-  const { login, register } = useAuth();
+const Login: React.FC = () => {
   const navigate = useNavigate();
-  
-  // Estado para alternar entre Login (false) y Registro (true)
-  const [isRegistering, setIsRegistering] = useState(false);
-  
+  const { signInWithEmail, signUpWithEmail } = useAuth();
+
+  const [tabIndex, setTabIndex] = useState(0); // 0 = Iniciar Sesión, 1 = Registrarse
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-  const [loginError, setLoginError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [successMsg, setSuccessMsg] = useState<string | null>(null);
+
+  const handleTabChange = (_: React.SyntheticEvent, newValue: number) => {
+    setTabIndex(newValue);
+    setError(null);
+    setSuccessMsg(null);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault(); 
-    console.log("Formulario enviado con:", email, "Modo registro:", isRegistering);
-
-    if (!email || !password) {
-      setLoginError('Por favor, rellena todos los campos.');
-      return;
-    }
-
-    setIsLoading(true);
-    setLoginError(null);
+    e.preventDefault();
+    setError(null);
+    setSuccessMsg(null);
+    setLoading(true);
 
     try {
-      if (isRegistering) {
-        console.log("Intentando registrar usuario en Supabase...");
-        // Asumiendo que tu hook useAuth expone la función de registro (usualmente llamada register o signUp)
-        if (register) {
-          await register(email, password);
-          console.log("¡Registro exitoso! Redirigiendo...");
-          navigate('/dashboard');
-        } else {
-          throw new Error("La función de registro no está disponible en useAuth");
-        }
-      } else {
-        console.log("Intentando conectar con Supabase (Login)...");
-        await login(email, password);
-        console.log("¡Login exitoso! Redirigiendo...");
+      if (tabIndex === 0) {
+        // Modo Inicio de Sesión
+        const { error: authError } = await signInWithEmail(email, password);
+        if (authError) throw authError;
+
         navigate('/dashboard');
+      } else {
+        // Modo Registro
+        const { error: authError } = await signUpWithEmail(email, password);
+        if (authError) throw authError;
+
+        setSuccessMsg('Registro exitoso. Revisa tu correo de confirmación o inicia sesión.');
       }
     } catch (err: any) {
-      console.error("Error capturado durante el proceso de autenticación:", err);
-      setLoginError(err?.message || 'Ocurrió un error con tus credenciales o la conexión');
+      setError(err.message || 'Ocurrió un error. Revisa tus datos.');
     } finally {
-      setIsLoading(false);
+      setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen w-full flex items-center justify-center bg-black p-4">
-      <div className="w-full max-w-md bg-surface p-8 rounded-lg border border-border space-y-6">
-        <div className="text-center space-y-1">
-          <h2 className="text-3xl font-bold text-white">MoneyFlow</h2>
-          <p className="text-sm text-text-muted">
-            {isRegistering ? 'Crea tu cuenta para el control financiero' : 'Accede a tu control inteligente financiero'}
-          </p>
-        </div>
+    <Box
+      sx={{
+        minHeight: '100vh',
+        width: '100%',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        bgcolor: 'background.default',
+        px: 2,
+      }}
+    >
+      <Card
+        sx={{
+          width: '100%',
+          maxWidth: 400,
+          p: 4,
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 2,
+          borderRadius: 3,
+        }}
+      >
+        <Box sx={{ textAlign: 'center', mb: 1 }}>
+          <Typography variant="h5" color="text.primary" gutterBottom sx={{ fontWeight: 700 }}>
+            MoneyFlow
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            Control financiero personal
+          </Typography>
+        </Box>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          {loginError && (
-            <div className="p-3 text-sm text-red-400 bg-red-950/50 border border-red-900 rounded-lg text-center">
-              ⚠️ {loginError}
-            </div>
-          )}
+        <Tabs value={tabIndex} onChange={handleTabChange} variant="fullWidth" sx={{ mb: 1 }}>
+          <Tab label="Iniciar Sesión" />
+          <Tab label="Registrarse" />
+        </Tabs>
 
-          <Input 
-            label="Correo electrónico" 
-            type="email" 
-            placeholder="nombre@correo.com" 
+        {error && (
+          <Alert severity="error" sx={{ borderRadius: 2 }}>
+            {error}
+          </Alert>
+        )}
+
+        {successMsg && (
+          <Alert severity="success" sx={{ borderRadius: 2 }}>
+            {successMsg}
+          </Alert>
+        )}
+
+        <Box component="form" onSubmit={handleSubmit} sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
+          <TextField
+            label="Correo Electrónico"
+            type="email"
+            variant="outlined"
+            fullWidth
+            required
             value={email}
-            onChange={(e: any) => setEmail(e.target.value)}
+            onChange={(e) => setEmail(e.target.value)}
           />
-          
-          <Input 
-            label="Contraseña" 
-            type="password" 
-            placeholder="••••••••" 
-            value={password}
-            onChange={(e: any) => setPassword(e.target.value)}
-          />
-          
-          <button 
-            type="submit" 
-            disabled={isLoading}
-            className="w-full py-3 px-4 bg-emerald-500 hover:bg-emerald-600 disabled:bg-emerald-800 text-black font-semibold rounded-lg transition-colors duration-200"
-          >
-            {isLoading ? 'Procesando...' : isRegistering ? 'Registrarse e Ingresar' : 'Ingresar de forma segura'}
-          </button>
-        </form>
 
-        {/* Enlace interactivo para alternar entre Login y Registro */}
-        <div className="text-center pt-2">
-          <p className="text-sm text-text-muted">
-            {isRegistering ? '¿Ya tienes una cuenta?' : '¿No tienes una cuenta?'}
-            <button
-              type="button"
-              onClick={() => {
-                setIsRegistering(!isRegistering);
-                setLoginError(null);
-              }}
-              className="ml-2 text-emerald-400 hover:text-emerald-300 font-medium underline bg-transparent border-none cursor-pointer"
-            >
-              {isRegistering ? 'Inicia sesión aquí' : 'Regístrate aquí'}
-            </button>
-          </p>
-        </div>
-      </div>
-    </div>
+          <TextField
+            label="Contraseña"
+            type="password"
+            variant="outlined"
+            fullWidth
+            required
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+          />
+
+          <Button
+            type="submit"
+            variant="contained"
+            color="primary"
+            fullWidth
+            disabled={loading}
+            sx={{
+              py: 1.5,
+              fontWeight: 700,
+              fontSize: '1rem',
+              mt: 1,
+              borderRadius: 2,
+            }}
+          >
+            {loading ? (
+              <CircularProgress size={24} color="inherit" />
+            ) : tabIndex === 0 ? (
+              'Ingresar de forma segura'
+            ) : (
+              'Crear Cuenta'
+            )}
+          </Button>
+        </Box>
+      </Card>
+    </Box>
   );
-}
+};
+
+export default Login;

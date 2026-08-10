@@ -1,28 +1,65 @@
-import React from "react";
+import React from 'react';
+import { Box, Skeleton, useTheme } from '@mui/material';
 
-export const PageSkeleton = React.memo(function PageSkeleton() {
+export const PageSkeleton: React.FC = React.memo(() => {
+  const theme = useTheme();
+  const customTheme = theme as any;
+
   return (
-    <div className="space-y-6 animate-pulse p-6">
-      {/* Título de la Página */}
-      <div className="h-8 w-56 rounded bg-zinc-800" />
+    <Box 
+      sx={{ 
+        p: theme.spacing(3), 
+        display: 'flex', 
+        flexDirection: 'column', 
+        gap: theme.spacing(3),
+        minHeight: '100vh',
+        backgroundColor: theme.palette.background.default 
+      }}
+    >
+      {/* Encabezado de Página */}
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <Box>
+          <Skeleton variant="text" width={180} height={32} sx={{ mb: 1 }} />
+          <Skeleton variant="text" width={260} height={20} />
+        </Box>
+        <Skeleton variant="circular" width={40} height={40} />
+      </Box>
 
-      {/* Grid de Tarjetas de Resumen (4 Columnas) */}
-      <div className="grid gap-4 grid-cols-1 md:grid-cols-4">
-        {Array.from({ length: 4 }).map((_, index) => (
-          <div
-            key={index}
-            className="rounded-2xl h-28 bg-zinc-900 border border-zinc-800 p-5 space-y-3"
-          >
-            <div className="h-4 w-1/2 bg-zinc-800 rounded" />
-            <div className="h-6 w-3/4 bg-zinc-800 rounded" />
-          </div>
-        ))}
-      </div>
-
-      {/* Contenedor Grande para Gráfico Principal */}
-      <div className="rounded-2xl h-96 bg-zinc-900 border border-zinc-800" />
-    </div>
+      {/* Grid de Contenedores Base */}
+      <Box 
+        sx={{ 
+          display: 'grid', 
+          gridTemplateColumns: { xs: '150px 150px 150px', md: '1fr 1fr 1fr' }, 
+          gap: theme.spacing(2) 
+        }}
+      >
+        <Skeleton 
+          variant="rounded" 
+          height={140} 
+          sx={{ 
+            borderRadius: `${theme.shape?.borderRadius || 8}px`,
+            backgroundColor: customTheme.custom?.card || 'background.paper'
+          }} 
+        />
+        <Skeleton 
+          variant="rounded" 
+          height={140} 
+          sx={{ 
+            borderRadius: `${theme.shape?.borderRadius || 8}px`,
+            backgroundColor: customTheme.custom?.card || 'background.paper'
+          }} 
+        />
+        <Skeleton 
+          variant="rounded" 
+          height={140} 
+          sx={{ 
+            borderRadius: `${theme.shape?.borderRadius || 8}px`,
+            backgroundColor: customTheme.custom?.card || 'background.paper'
+          }} 
+        />
+      </Box>
+    </Box>
   );
 });
 
-export default PageSkeleton;
+PageSkeleton.displayName = 'PageSkeleton';

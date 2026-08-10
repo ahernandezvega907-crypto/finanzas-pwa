@@ -1,54 +1,97 @@
-import React, { createContext, useState, useCallback, ReactNode, useMemo } from 'react';
+import React, { createContext, useContext, useState, useCallback } from 'react';
+import { Snackbar, Alert, AlertColor, useTheme, useMediaQuery } from '@mui/material';
+import { CheckCircle as CheckCircleIcon, Error as ErrorOutlineIcon, Warning as WarningAmberIcon, Info as InfoOutlinedIcon } from '@mui/icons-material';
 
-export type NotificationType = 'success' | 'error' | 'info' | 'warning';
-
-export interface Notification {
-  id: string;
-  message: string;
-  type: NotificationType;
-}
-
-export interface NotificationContextType {
-  notifications: Notification[];
-  showNotification: (message: string, type: NotificationType) => void;
-  dismissNotification: (id: string) => void;
+interface NotificationContextType {
+  notifySuccess: (message: string) => void;
+  notifyError: (message: string) => void;
+  notifyWarning: (message: string) => void;
+  notifyInfo: (message: string) => void;
 }
 
 export const NotificationContext = createContext<NotificationContextType | undefined>(undefined);
 
-export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const [notifications, setNotifications] = useState<Notification[]>([]);
+export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  
+  const [open, setOpen] = useState(false);
+  const [message, setMessage] = useState('');
+  const [severity, setSeverity] = useState<AlertColor>('success');
+  const [duration, setDuration] = useState(2500);
 
-  // Eliminar notificación memorizado para mantener referencias estables
-  const dismissNotification = useCallback((id: string) => {
-    setNotifications((prev) => prev.filter((n) => n.id !== id));
+  const showNotification = useCallback((msg: string, sev: AlertColor, dur: number) => {
+    setMessage(msg);
+    setSeverity(sev);
+    setDuration(dur);
+    setOpen(true);
   }, []);
 
-  // Mostrar notificación memorizado y seguro
-  const showNotification = useCallback((message: string, type: NotificationType) => {
-    const id = crypto.randomUUID();
-    setNotifications((prev) => [...prev, { id, message, type }]);
+  const notifySuccess = useCallback((msg: string) => showNotification(msg, 'success', 2500), [showNotification]);
+  const notifyError = useCallback((msg: string) => showNotification(msg, 'error', 5000), [showNotification]);
+  const notifyWarning = useCallback((msg: string) => showNotification(msg, 'warning', 4000), [showNotification]);
+  const notifyInfo = useCallback((msg: string) => showNotification(msg, 'info', 3000), [showNotification]);
 
-    // El timeout se ejecuta de manera segura. 
-    // Nota: Si usas efectos de desmontado en tu ToastContainer, este timeout es un excelente salvavidas.
-    const timer = setTimeout(() => {
-      dismissNotification(id);
-    }, 4000);
+  const handleClose = (_?: React.SyntheticEvent | Event, reason?: string) => {
+    if (reason === 'clickaway') return;
+    setOpen(false);
+  };
 
-    return () => clearTimeout(timer);
-  }, [dismissNotification]);
+  // Mapeo semántico de iconos institucionales con casteo dinámico preventivo
+  const getIcon = () => {
+    const customTheme = theme as any;
+    switch (severity) {
+      case 'success': 
+        return <CheckCircleIcon fontSize="small" style={{ color: customTheme.custom?.income || '#10b981' }} />;
+      case 'error': 
+        return <ErrorOutlineIcon fontSize="small" style={{ color: customTheme.custom?.expense || '#ef4444' }} />;
+      case 'warning': 
+        return <WarningAmberIcon fontSize="small" style={{ color: '#f59e0b' }} />;
+      default: 
+        return <InfoOutlinedIcon fontSize="small" style={{ color: theme.palette.primary.main }} />;
+    }
+  };
 
-  // Memorizamos el valor del contexto para que no cambie de referencia a menos que
-  // el array de notificaciones realmente cambie. ¡Esto salva decenas de re-renders!
-  const contextValue = useMemo(() => ({
-    notifications,
-    showNotification,
-    dismissNotification
-  }), [notifications, showNotification, dismissNotification]);
+  const customTheme = theme as any;
 
   return (
-    <NotificationContext.Provider value={contextValue}>
+    <NotificationContext.Provider value={{ notifySuccess, notifyError, notifyWarning, notifyInfo }}>
       {children}
+      <Snackbar
+        open={open}
+        autoHideDuration={duration}
+        onClose={handleClose}
+        anchorOrigin={{
+          vertical: 'bottom',
+          horizontal: isMobile ? 'center' : 'right',
+        }}
+      >
+        <Alert
+          onClose={handleClose}
+          icon={getIcon()}
+          sx={{
+            width: '100%',
+            minWidth: isMobile ? '90vw' : '320px',
+            backgroundColor: customTheme.custom?.card || 'background.paper',
+            color: 'text.primary',
+            boxShadow: theme.shadows[4],
+            borderRadius: `${theme.shape?.borderRadius || 8}px`,
+            border: `1px solid ${customTheme.custom?.border || 'rgba(0,0,0,0.08)'}`,
+            fontWeight: 500,
+            display: 'flex',
+            alignItems: 'center',
+            '& .MuiAlert-message': { fontSize: '0.875rem' }
+          }}
+        >
+          {message}
+        </Alert>
+      </Snackbar>
     </NotificationContext.Provider>
   );
+};
+
+export const useNotification = () => {
+  const context = useContext(NotificationContext);
+  if (!context) throw new Error('useNotification debe usarse dentro de un NotificationProvider');
+  return context;
 };

@@ -1,0 +1,4 @@
+Copyright (c) 2026 Armando Hernández. Todos los derechos reservados.
+
+Queda prohibida la reproducción, distribución, modificación o comercialización 
+no autorizada de este código fuente y sus componentes.

@@ -1,89 +1,286 @@
-import { useEffect } from 'react';
+import React, { useState } from 'react';
+import {
+  Box,
+  Typography,
+  Paper,
+  Button,
+  List,
+  ListItem,
+  ListItemText,
+  ListItemIcon,
+  IconButton,
+  Chip,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  TextField,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  CircularProgress,
+  Alert,
+} from '@mui/material';
+import {
+  Add as AddIcon,
+  Delete as DeleteIcon,
+  Edit as EditIcon,
+  TrendingUp as IncomeIcon,
+  TrendingDown as ExpenseIcon,
+} from '@mui/icons-material';
 import { useTransactions } from '../features/transactions/hooks/useTransactions';
-import { TransactionForm } from '../features/transactions/components/TransactionForm';
-import { TransactionList } from '../features/transactions/components/TransactionList';
-// Importa tu hook de autenticación real aquí (ej. useAuth o de un context)
-// import { useAuth } from '../hooks/useAuth'; 
+import { useCategories } from '../hooks/useCategories';
 
-export default function Transactions() {
-  // === CONFIGURACIÓN DE USUARIO ===
-  // Si usas un hook de autenticación real, descomenta la línea de abajo:
-  // const { user } = useAuth();
-  // const profileId = user?.id;
-  
-  // Por ahora utilizaremos un ID simulado para asegurar que no se rompa el compilador:
-  const profileId = '00000000-0000-0000-0000-000000000000'; 
-
+const Transactions: React.FC = () => {
   const {
     transactions,
-    isLoading,
+    loading,
     error,
-    selectedTransaction,
-    loadTransactions,
     createTransaction,
     updateTransaction,
     deleteTransaction,
+    selectedTransaction,
     startEditing,
     cancelEditing,
   } = useTransactions();
 
-  // === CARGA INICIAL DE DATOS ===
-  useEffect(() => {
-    if (profileId) {
-      loadTransactions(profileId);
-    }
-  }, [profileId, loadTransactions]);
+  const { categories } = useCategories();
 
-  // === CONTROLADORES DE ACCIÓN (SUBMIT) ===
-  const handleFormSubmit = async (data: any) => {
-    if (!profileId) return;
+  const [openModal, setOpenModal] = useState(false);
+  const [amount, setAmount] = useState('');
+  const [type, setType] = useState<'income' | 'expense'>('expense');
+  const [categoryId, setCategoryId] = useState('');
+  const [description, setDescription] = useState('');
+  const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
+  const [submitting, setSubmitting] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
+
+  const filteredCategories = categories.filter((cat) => cat.type === type);
+
+  const handleOpenNew = () => {
+    cancelEditing();
+    setAmount('');
+    setType('expense');
+    setCategoryId('');
+    setDescription('');
+    setDate(new Date().toISOString().slice(0, 10));
+    setActionError(null);
+    setOpenModal(true);
+  };
+
+  const handleOpenEdit = (tx: any) => {
+    startEditing(tx);
+    setAmount(tx.amount.toString());
+    setType(tx.type);
+    setCategoryId(tx.categoryId || tx.category_id || '');
+    setDescription(tx.description || '');
+    setDate(tx.date || tx.transaction_date || new Date().toISOString().slice(0, 10));
+    setActionError(null);
+    setOpenModal(true);
+  };
+
+  const handleClose = () => {
+    cancelEditing();
+    setOpenModal(false);
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const parsedAmount = parseFloat(amount);
+    if (isNaN(parsedAmount) || parsedAmount <= 0 || !categoryId) {
+      setActionError('Por favor ingresa un monto válido y selecciona una categoría.');
+      return;
+    }
+
+    setSubmitting(true);
+    setActionError(null);
+
+    const dto = {
+      amount: parsedAmount,
+      type,
+      categoryId,
+      description: description.trim(),
+      date,
+    };
 
     if (selectedTransaction) {
-      // Si hay una transacción seleccionada en el estado del hook, actualizamos
-      await updateTransaction(selectedTransaction.id, data);
+      await updateTransaction(selectedTransaction.id, dto);
     } else {
-      // De lo contrario, creamos una nueva
-      await createTransaction(profileId, data);
+      await createTransaction(dto);
+    }
+
+    setSubmitting(false);
+    handleClose();
+  };
+
+  const handleDelete = async (id: string) => {
+    if (window.confirm('¿Estás seguro de eliminar este movimiento?')) {
+      await deleteTransaction(id);
     }
   };
 
   return (
-    <div className="max-w-6xl mx-auto px-4 py-6 space-y-6">
-      {/* Encabezado */}
-      <div className="border-b border-zinc-100 dark:border-zinc-800 pb-4">
-        <h2 className="text-3xl font-extrabold text-zinc-900 dark:text-white">
-          Mis Movimientos
-        </h2>
-        <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">
-          Controla tus ingresos y gastos de forma simple y optimizada.
-        </p>
-      </div>
+    <Box sx={{ p: { xs: 2, md: 3 }, maxWidth: 900, mx: 'auto' }}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+        <Typography variant="h4" sx={{ fontWeight: 700 }}>
+          Movimientos
+        </Typography>
+        <Button variant="contained" startIcon={<AddIcon />} onClick={handleOpenNew}>
+          Nuevo Movimiento
+        </Button>
+      </Box>
 
-      {/* Grid Responsivo: Formulario a la izquierda / Lista a la derecha */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-        
-        {/* Columna Formulario (Ancho de 5/12 en escritorio) */}
-        <div className="lg:col-span-5 sticky lg:top-6">
-          <TransactionForm
-            onSubmitSuccess={handleFormSubmit}
-            isLoading={isLoading}
-            transaction={selectedTransaction}
-            onCancelEdit={cancelEditing}
-          />
-        </div>
+      {error && <Alert severity="error" sx={{ mb: 2 }}>{error.message || 'Error al procesar transacciones'}</Alert>}
 
-        {/* Columna Historial (Ancho de 7/12 en escritorio) */}
-        <div className="lg:col-span-7 bg-zinc-50/50 dark:bg-zinc-950/30 rounded-2xl p-4 lg:p-6 border border-zinc-100 dark:border-zinc-900/50">
-          <TransactionList
-            transactions={transactions}
-            isLoading={isLoading && transactions.length === 0} // Muestra spinner solo en la carga inicial
-            error={error}
-            onEdit={startEditing}
-            onDelete={deleteTransaction}
-          />
-        </div>
+      {loading && transactions.length === 0 ? (
+        <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
+          <CircularProgress />
+        </Box>
+      ) : transactions.length === 0 ? (
+        <Paper sx={{ p: 4, textAlign: 'center', borderRadius: 3 }}>
+          <Typography color="text.secondary">
+            No tienes movimientos registrados. Haz clic en "Nuevo Movimiento" para agregar uno.
+          </Typography>
+        </Paper>
+      ) : (
+        <Paper sx={{ borderRadius: 3, overflow: 'hidden' }}>
+          <List disablePadding>
+            {transactions.map((tx) => {
+              const isIncome = tx.type === 'income';
+              const catName = categories.find((c) => c.id === (tx.categoryId || (tx as any).category_id))?.name || 'Movimiento';
 
-      </div>
-    </div>
+              return (
+                <ListItem
+                  key={tx.id}
+                  divider
+                  secondaryAction={
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <Typography
+                        variant="subtitle1"
+                        sx={{
+                          fontWeight: 700,
+                          color: isIncome ? 'success.main' : 'error.main',
+                        }}
+                      >
+                        {isIncome ? '+' : '-'}${tx.amount.toLocaleString()}
+                      </Typography>
+                      <IconButton edge="end" onClick={() => handleOpenEdit(tx)}>
+                        <EditIcon />
+                      </IconButton>
+                      <IconButton edge="end" color="error" onClick={() => handleDelete(tx.id)}>
+                        <DeleteIcon />
+                      </IconButton>
+                    </Box>
+                  }
+                >
+                  <ListItemIcon>
+                    {isIncome ? <IncomeIcon color="success" /> : <ExpenseIcon color="error" />}
+                  </ListItemIcon>
+                  <ListItemText
+                    primary={tx.description || catName}
+                    secondary={`${tx.date || (tx as any).transaction_date} • ${catName}`}
+                  />
+                  <Chip
+                    label={isIncome ? 'Ingreso' : 'Gasto'}
+                    size="small"
+                    color={isIncome ? 'success' : 'error'}
+                    variant="outlined"
+                    sx={{ mr: 2, display: { xs: 'none', sm: 'inline-flex' } }}
+                  />
+                </ListItem>
+              );
+            })}
+          </List>
+        </Paper>
+      )}
+
+      {/* Modal Crear / Editar */}
+      <Dialog open={openModal} onClose={handleClose} fullWidth maxWidth="xs">
+        <form onSubmit={handleSubmit}>
+          <DialogTitle>
+            {selectedTransaction ? 'Editar Movimiento' : 'Registrar Movimiento'}
+          </DialogTitle>
+          <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
+            {actionError && <Alert severity="error">{actionError}</Alert>}
+
+            <FormControl fullWidth required>
+              <InputLabel id="tx-type-label">Tipo de Movimiento</InputLabel>
+              <Select
+                labelId="tx-type-label"
+                value={type}
+                label="Tipo de Movimiento"
+                onChange={(e) => {
+                  setType(e.target.value as 'income' | 'expense');
+                  setCategoryId('');
+                }}
+              >
+                <MenuItem value="expense">Gasto</MenuItem>
+                <MenuItem value="income">Ingreso</MenuItem>
+              </Select>
+            </FormControl>
+
+            <TextField
+              label="Monto ($)"
+              type="number"
+              fullWidth
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+              required
+              slotProps={{ htmlInput: { min: 0.01, step: 'any' } }}
+            />
+
+            <FormControl fullWidth required>
+              <InputLabel id="tx-category-label">Categoría</InputLabel>
+              <Select
+                labelId="tx-category-label"
+                value={categoryId}
+                label="Categoría"
+                onChange={(e) => setCategoryId(e.target.value)}
+              >
+                {filteredCategories.map((cat) => (
+                  <MenuItem key={cat.id} value={cat.id}>
+                    {cat.name}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+
+            <TextField
+              label="Fecha"
+              type="date"
+              fullWidth
+              value={date}
+              onChange={(e) => setDate(e.target.value)}
+              slotProps={{ inputLabel: { shrink: true } }}
+              required
+            />
+
+            <TextField
+              label="Descripción o Nota"
+              fullWidth
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="Ej. Supermercado, Salario, etc."
+            />
+          </DialogContent>
+
+          <DialogActions sx={{ p: 2 }}>
+            <Button onClick={handleClose} disabled={submitting}>
+              Cancelar
+            </Button>
+            <Button
+              type="submit"
+              variant="contained"
+              disabled={submitting || !amount || !categoryId}
+            >
+              {submitting ? <CircularProgress size={24} /> : 'Guardar'}
+            </Button>
+          </DialogActions>
+        </form>
+      </Dialog>
+    </Box>
   );
-}
+};
+
+export default Transactions;
