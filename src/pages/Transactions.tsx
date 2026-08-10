@@ -32,6 +32,18 @@ import {
 import { useTransactions } from '../features/transactions/hooks/useTransactions';
 import { useCategories } from '../hooks/useCategories';
 
+// Categorías por defecto si la base de datos o el hook no devuelven datos completos
+const DEFAULT_CATEGORIES = [
+  { id: 'cat-1', name: 'Alimentación', type: 'expense' },
+  { id: 'cat-2', name: 'Vivienda', type: 'expense' },
+  { id: 'cat-3', name: 'Transporte', type: 'expense' },
+  { id: 'cat-4', name: 'Entretenimiento', type: 'expense' },
+  { id: 'cat-5', name: 'Salud', type: 'expense' },
+  { id: 'cat-6', name: 'Otros', type: 'expense' },
+  { id: 'cat-7', name: 'Salario', type: 'income' },
+  { id: 'cat-8', name: 'Ventas / Negocio', type: 'income' },
+];
+
 const Transactions: React.FC = () => {
   const {
     transactions,
@@ -45,7 +57,12 @@ const Transactions: React.FC = () => {
     cancelEditing,
   } = useTransactions();
 
-  const { categories } = useCategories();
+  const { categories: loadedCategories } = useCategories();
+
+  // Usar categorías del backend o los fallbacks por defecto
+  const allCategories = loadedCategories && loadedCategories.length > 0 
+    ? loadedCategories 
+    : DEFAULT_CATEGORIES;
 
   const [openModal, setOpenModal] = useState(false);
   const [amount, setAmount] = useState('');
@@ -56,7 +73,7 @@ const Transactions: React.FC = () => {
   const [submitting, setSubmitting] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
 
-  const filteredCategories = categories.filter((cat) => cat.type === type);
+  const filteredCategories = allCategories.filter((cat) => cat.type === type);
 
   const handleOpenNew = () => {
     cancelEditing();
@@ -75,7 +92,7 @@ const Transactions: React.FC = () => {
     setType(tx.type);
     setCategoryId(tx.categoryId || tx.category_id || '');
     setDescription(tx.description || '');
-    setDate(tx.date || tx.transaction_date || new Date().toISOString().slice(0, 10));
+    setDate(tx.date || tx.transaction_date || (tx.created_at ? tx.created_at.slice(0, 10) : new Date().toISOString().slice(0, 10)));
     setActionError(null);
     setOpenModal(true);
   };
@@ -148,12 +165,19 @@ const Transactions: React.FC = () => {
           <List disablePadding>
             {transactions.map((tx) => {
               const isIncome = tx.type === 'income';
-              const catName = categories.find((c) => c.id === (tx.categoryId || (tx as any).category_id))?.name || 'Movimiento';
+              
+              // Buscar nombre de categoría o dar valor general
+              const foundCategory = allCategories.find((c) => c.id === (tx.categoryId || (tx as any).category_id));
+              const catName = foundCategory ? foundCategory.name : ((tx as any).category || 'General');
+              
+              // Evitar "undefined" resolviendo la fecha desde cualquier campo disponible
+              const displayDate = tx.date || (tx as any).transaction_date || ((tx as any).created_at ? (tx as any).created_at.slice(0, 10) : 'Fecha no registrada');
 
               return (
                 <ListItem
                   key={tx.id}
                   divider
+                  sx={{ pr: { xs: 12, sm: 16 } }} // Reserva espacio a la derecha para no solapar montos ni botones
                   secondaryAction={
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                       <Typography
@@ -161,32 +185,34 @@ const Transactions: React.FC = () => {
                         sx={{
                           fontWeight: 700,
                           color: isIncome ? 'success.main' : 'error.main',
+                          whiteSpace: 'nowrap',
+                          mr: 1
                         }}
                       >
-                        {isIncome ? '+' : '-'}${tx.amount.toLocaleString()}
+                        {isIncome ? '+' : '-'}₡{Number(tx.amount).toLocaleString()}
                       </Typography>
                       <IconButton edge="end" onClick={() => handleOpenEdit(tx)}>
-                        <EditIcon />
+                        <EditIcon fontSize="small" />
                       </IconButton>
                       <IconButton edge="end" color="error" onClick={() => handleDelete(tx.id)}>
-                        <DeleteIcon />
+                        <DeleteIcon fontSize="small" />
                       </IconButton>
                     </Box>
                   }
                 >
-                  <ListItemIcon>
+                  <ListItemIcon sx={{ minWidth: 40 }}>
                     {isIncome ? <IncomeIcon color="success" /> : <ExpenseIcon color="error" />}
                   </ListItemIcon>
                   <ListItemText
                     primary={tx.description || catName}
-                    secondary={`${tx.date || (tx as any).transaction_date} • ${catName}`}
+                    secondary={`${displayDate} • ${catName}`}
                   />
                   <Chip
                     label={isIncome ? 'Ingreso' : 'Gasto'}
                     size="small"
                     color={isIncome ? 'success' : 'error'}
                     variant="outlined"
-                    sx={{ mr: 2, display: { xs: 'none', sm: 'inline-flex' } }}
+                    sx={{ mr: 2, display: { xs: 'none', md: 'inline-flex' } }}
                   />
                 </ListItem>
               );
@@ -221,7 +247,7 @@ const Transactions: React.FC = () => {
             </FormControl>
 
             <TextField
-              label="Monto ($)"
+              label="Monto (₡)"
               type="number"
               fullWidth
               value={amount}
@@ -261,7 +287,7 @@ const Transactions: React.FC = () => {
               fullWidth
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="Ej. Supermercado, Salario, etc."
+              placeholder="Ej. Supermercado, Almuerzo, etc."
             />
           </DialogContent>
 
