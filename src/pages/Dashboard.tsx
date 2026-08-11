@@ -1,155 +1,135 @@
-import React, { useEffect, useState } from 'react';
+import React, { useMemo } from 'react';
 import {
   Box,
-  Container,
   Typography,
   Grid,
+  Paper,
+  CircularProgress,
+  Alert,
   Card,
   CardContent,
-  Skeleton,
-  Button
 } from '@mui/material';
 import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 import TrendingDownIcon from '@mui/icons-material/TrendingDown';
 import AccountBalanceWalletIcon from '@mui/icons-material/AccountBalanceWallet';
-import AddIcon from '@mui/icons-material/Add';
-import { useAuth } from '../context/AuthContext';
-import { transactionsRepository } from '../features/transactions/repositories/transactions.repository';
-import { useNavigate } from 'react-router-dom';
 
-export const DashboardView: React.FC = () => {
-  const { user } = useAuth();
-  const navigate = useNavigate();
-  const [loading, setLoading] = useState(true);
-  const [income, setIncome] = useState(0);
-  const [expenses, setExpenses] = useState(0);
+import { useTransactions } from '../features/transactions/hooks/useTransactions';
 
-  useEffect(() => {
-    const fetchMetrics = async () => {
-      if (!user?.id) return;
-      setLoading(true);
-      try {
-        const data = await transactionsRepository.getAll(user.id);
-        
-        let totalIncome = 0;
-        let totalExpenses = 0;
+export const Dashboard: React.FC = () => {
+  const { transactions, loading, error } = useTransactions();
 
-        data.forEach((tx: any) => {
-          const val = Number(tx.amount || 0);
-          if (tx.type === 'income') {
-            totalIncome += val;
-          } else if (tx.type === 'expense') {
-            totalExpenses += val;
-          }
-        });
+  // Cálculo de totales agregados
+  const { totalIncome, totalExpense, balance } = useMemo(() => {
+    let income = 0;
+    let expense = 0;
 
-        setIncome(totalIncome);
-        setExpenses(totalExpenses);
-      } catch (err) {
-        console.error('Error al cargar datos del dashboard:', err);
-      } finally {
-        setLoading(false);
+    transactions.forEach((tx: any) => {
+      const amt = Number(tx.amount) || 0;
+      if (tx.type === 'income') {
+        income += amt;
+      } else if (tx.type === 'expense') {
+        expense += amt;
       }
+    });
+
+    return {
+      totalIncome: income,
+      totalExpense: expense,
+      balance: income - expense,
     };
+  }, [transactions]);
 
-    fetchMetrics();
-  }, [user?.id]);
-
-  const balance = income - expenses;
+  const formatCurrency = (amount: number) => {
+    return `₡${amount.toLocaleString('es-CR', { minimumFractionDigits: 0 })}`;
+  };
 
   return (
-    <Container maxWidth="lg" sx={{ py: 3 }}>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 4 }}>
-        <Box>
-          <Typography variant="h4" sx={{ fontWeight: 'bold' }}>
-            Dashboard
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            Resumen de tu salud financiera en tiempo real
-          </Typography>
+    <Box sx={{ p: 3, maxWidth: 1200, margin: '0 auto' }}>
+      <Typography variant="h4" sx={{ fontWeight: 'bold', mb: 3 }}>
+        Dashboard General
+      </Typography>
+
+      {/* Manejo de error offline/red */}
+      {error && navigator.onLine && (
+        <Alert severity="error" sx={{ mb: 3, borderRadius: 2 }}>
+          {typeof error === 'string' ? error : (error as any).message || 'Error al cargar los datos del Dashboard.'}
+        </Alert>
+      )}
+
+      {loading ? (
+        <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}>
+          <CircularProgress />
         </Box>
-        <Button
-          variant="contained"
-          startIcon={<AddIcon />}
-          onClick={() => navigate('/transactions')}
-          sx={{ borderRadius: 3, textTransform: 'none', fontWeight: 'bold' }}
-        >
-          Nueva Transacción
-        </Button>
-      </Box>
-
-      <Grid container spacing={3} sx={{ mb: 4 }}>
-        {/* Balance Total */}
-        <Grid size={{ xs: 12, md: 4 }}>
-          <Card sx={{ borderRadius: 3, p: 1, bgcolor: 'background.paper', border: '1px solid', borderColor: 'divider' }}>
-            <CardContent sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-              <Box sx={{ p: 1.5, borderRadius: 2, bgcolor: 'primary.dark', color: 'primary.contrastText', display: 'flex' }}>
-                <AccountBalanceWalletIcon fontSize="large" />
-              </Box>
-              <Box>
-                <Typography variant="caption" color="text.secondary">
-                  Balance Total
-                </Typography>
-                {loading ? (
-                  <Skeleton width={100} height={35} />
-                ) : (
-                  <Typography variant="h5" sx={{ fontWeight: 'bold' }}>
-                    ₡{balance.toLocaleString()}
+      ) : (
+        <Grid container spacing={3}>
+          {/* Tarjeta 1: Balance Total */}
+          <Grid item xs={12} md={4}>
+            <Card sx={{ borderRadius: 3, boxShadow: 2, bgcolor: balance >= 0 ? 'background.paper' : '#2d1a1a' }}>
+              <CardContent sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                <Box
+                  sx={{
+                    p: 1.5,
+                    borderRadius: 2,
+                    bgcolor: balance >= 0 ? 'primary.soft' : 'error.soft',
+                    color: balance >= 0 ? 'primary.main' : 'error.main',
+                    display: 'flex',
+                  }}
+                >
+                  <AccountBalanceWalletIcon fontSize="large" />
+                </Box>
+                <Box>
+                  <Typography variant="body2" color="text.secondary">
+                    Balance Disponible
                   </Typography>
-                )}
-              </Box>
-            </CardContent>
-          </Card>
-        </Grid>
-
-        {/* Ingresos */}
-        <Grid size={{ xs: 12, sm: 6, md: 4 }}>
-          <Card sx={{ borderRadius: 3, p: 1, bgcolor: 'background.paper', border: '1px solid', borderColor: 'divider' }}>
-            <CardContent sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-              <Box sx={{ p: 1.5, borderRadius: 2, bgcolor: 'success.dark', color: 'common.white', display: 'flex' }}>
-                <TrendingUpIcon fontSize="large" />
-              </Box>
-              <Box>
-                <Typography variant="caption" color="text.secondary">
-                  Ingresos
-                </Typography>
-                {loading ? (
-                  <Skeleton width={100} height={35} />
-                ) : (
-                  <Typography variant="h5" sx={{ fontWeight: 'bold', color: 'success.main' }}>
-                    ₡{income.toLocaleString()}
+                  <Typography variant="h5" sx={{ fontWeight: 700, color: balance >= 0 ? 'text.primary' : 'error.main' }}>
+                    {formatCurrency(balance)}
                   </Typography>
-                )}
-              </Box>
-            </CardContent>
-          </Card>
-        </Grid>
+                </Box>
+              </CardContent>
+            </Card>
+          </Grid>
 
-        {/* Gastos */}
-        <Grid size={{ xs: 12, sm: 6, md: 4 }}>
-          <Card sx={{ borderRadius: 3, p: 1, bgcolor: 'background.paper', border: '1px solid', borderColor: 'divider' }}>
-            <CardContent sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-              <Box sx={{ p: 1.5, borderRadius: 2, bgcolor: 'error.dark', color: 'common.white', display: 'flex' }}>
-                <TrendingDownIcon fontSize="large" />
-              </Box>
-              <Box>
-                <Typography variant="caption" color="text.secondary">
-                  Gastos
-                </Typography>
-                {loading ? (
-                  <Skeleton width={100} height={35} />
-                ) : (
-                  <Typography variant="h5" sx={{ fontWeight: 'bold', color: 'error.main' }}>
-                    ₡{expenses.toLocaleString()}
+          {/* Tarjeta 2: Ingresos Totales */}
+          <Grid item xs={12} sm={6} md={4}>
+            <Card sx={{ borderRadius: 3, boxShadow: 2 }}>
+              <CardContent sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                <Box sx={{ p: 1.5, borderRadius: 2, bgcolor: 'rgba(46, 125, 50, 0.1)', color: 'success.main', display: 'flex' }}>
+                  <TrendingUpIcon fontSize="large" />
+                </Box>
+                <Box>
+                  <Typography variant="body2" color="text.secondary">
+                    Ingresos Totales
                   </Typography>
-                )}
-              </Box>
-            </CardContent>
-          </Card>
+                  <Typography variant="h5" sx={{ fontWeight: 700, color: 'success.main' }}>
+                    {formatCurrency(totalIncome)}
+                  </Typography>
+                </Box>
+              </CardContent>
+            </Card>
+          </Grid>
+
+          {/* Tarjeta 3: Gastos Totales */}
+          <Grid item xs={12} sm={6} md={4}>
+            <Card sx={{ borderRadius: 3, boxShadow: 2 }}>
+              <CardContent sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                <Box sx={{ p: 1.5, borderRadius: 2, bgcolor: 'rgba(211, 47, 47, 0.1)', color: 'error.main', display: 'flex' }}>
+                  <TrendingDownIcon fontSize="large" />
+                </Box>
+                <Box>
+                  <Typography variant="body2" color="text.secondary">
+                    Gastos Totales
+                  </Typography>
+                  <Typography variant="h5" sx={{ fontWeight: 700, color: 'error.main' }}>
+                    {formatCurrency(totalExpense)}
+                  </Typography>
+                </Box>
+              </CardContent>
+            </Card>
+          </Grid>
         </Grid>
-      </Grid>
-    </Container>
+      )}
+    </Box>
   );
 };
 
-export default DashboardView;
+export default Dashboard;
