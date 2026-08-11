@@ -1,155 +1,224 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   Box,
-  Container,
   Typography,
-  Card,
-  CardContent,
-  Button,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
   Paper,
-  Skeleton,
-  Chip
+  Button,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  CircularProgress,
+  Divider,
 } from '@mui/material';
 import DownloadIcon from '@mui/icons-material/Download';
-import { useAuth } from '../context/AuthContext';
-import { transactionsRepository } from '../features/transactions/repositories/transactions.repository';
-import { exportExcel } from '../features/reports/utils/exportExcel';
+import TableChartIcon from '@mui/icons-material/TableChart';
+import {
+  AreaChart,
+  Area,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip as RechartsTooltip,
+  ResponsiveContainer,
+} from 'recharts';
 
-interface CategorySummary {
-  categoryName: string;
-  totalSpent: number;
-  transactionCount: number;
-}
+import { useTransactions } from '../features/transactions/hooks/useTransactions';
+import { useCategories } from '../features/categories/hooks/useCategories';
 
-export const ReportsView: React.FC = () => {
-  const { user } = useAuth();
-  const [loading, setLoading] = useState(true);
-  const [transactions, setTransactions] = useState<any[]>([]);
-  const [categorySummaries, setCategorySummaries] = useState<CategorySummary[]>([]);
+export const Reports: React.FC = () => {
+  const { transactions, loading } = useTransactions();
+  const { categoriesQuery } = useCategories();
+  const categories = categoriesQuery?.data || [];
 
-  useEffect(() => {
-    const fetchReportData = async () => {
-      if (!user?.id) return;
-      setLoading(true);
-      try {
-        const data = await transactionsRepository.getAll(user.id);
-        setTransactions(data);
+  const [filterType, setFilterType] = useState<string>('all');
 
-        // Agrupar gastos por categoría
-        const summaryMap: Record<string, { totalSpent: number; count: number }> = {};
+  // Transacciones filtradas por tipo
+  const filteredTransactions = useMemo(() => {
+    if (filterType === 'all') return transactions;
+    return transactions.filter((tx: any) => tx.type === filterType);
+  }, [transactions, filterType]);
 
-        data.forEach((tx: any) => {
-          if (tx.type === 'expense') {
-            const catName = tx.categories?.name || 'Sin Categoría';
-            const amount = Number(tx.amount || 0);
+  // Agrupación de saldos por fecha para el gráfico de área
+  const timelineData = useMemo(() => {
+    const sorted = [...transactions].sort(
+      (a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime()
+    );
 
-            if (!summaryMap[catName]) {
-              summaryMap[catName] = { totalSpent: 0, count: 0 };
-            }
-            summaryMap[catName].totalSpent += amount;
-            summaryMap[catName].count += 1;
-          }
-        });
+    const dateMap: Record<string, { income: number; expense: number }> = {};
 
-        const summaryArray: CategorySummary[] = Object.keys(summaryMap).map((catName) => ({
-          categoryName: catName,
-          totalSpent: summaryMap[catName].totalSpent,
-          transactionCount: summaryMap[catName].count,
-        }));
-
-        setCategorySummaries(summaryArray);
-      } catch (err) {
-        console.error('Error cargando reportes:', err);
-      } finally {
-        setLoading(false);
+    sorted.forEach((tx: any) => {
+      const dateKey = tx.date ? tx.date.split('T')[0] : 'Sin fecha';
+      if (!dateMap[dateKey]) {
+        dateMap[dateKey] = { income: 0, expense: 0 };
       }
-    };
-
-    fetchReportData();
-  }, [user?.id]);
-
-  const handleExport = () => {
-    if (transactions.length === 0) return;
-    exportExcel(transactions, {
-      transaction_date: 'Fecha',
-      type: 'Tipo',
-      amount: 'Monto',
-      description: 'Descripción'
+      const amt = Number(tx.amount) || 0;
+      if (tx.type === 'income') {
+        dateMap[dateKey].income += amt;
+      } else if (tx.type === 'expense') {
+        dateMap[dateKey].expense += amt;
+      }
     });
+
+    return Object.keys(dateMap).map((date) => ({
+      date,
+      Ingresos: dateMap[date].income,
+      Gastos: dateMap[date].expense,
+    }));
+  }, [transactions]);
+
+  // Función para exportar las transacciones filtradas a CSV
+  const exportToCSV = () => {
+    if (filteredTransactions.length === 0) return;
+
+    const headers = ['ID', 'Fecha', 'Tipo', 'Monto (CRC)', 'Categoría', 'Descripción'];
+    const rows = filteredTransactions.map((tx: any) => {
+      const catObj = categories.find((c: any) => c.id === (tx.category_id || tx.categoryId));
+      const catName = catObj ? catObj.name : 'Sin Categoría';
+      return [
+        tx.id,
+        tx.date ? tx.date.split('T')[0] : '',
+        tx.type === 'income' ? 'Ingreso' : 'Gasto',
+        tx.amount,
+        `"${catName}"`,
+        `"${(tx.description || '').replace(/"/g, '""')}"`,
+      ];
+    });
+
+    const csvContent =
+      'data:text/csv;charset=utf-8,\uFEFF' +
+      [headers.join(','), ...rows.map((e) => e.join(','))].join('\n');
+
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement('a');
+    link.setAttribute('href', encodedUri);
+    link.setAttribute('download', `reporte_finanzas_${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const formatCurrency = (amount: number) => {
+    return `₡${amount.toLocaleString('es-CR', { minimumFractionDigits: 0 })}`;
   };
 
   return (
-    <Container maxWidth="lg" sx={{ py: 3 }}>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 4 }}>
-        <Box>
-          <Typography variant="h4" sx={{ fontWeight: 'bold' }}>
-            Reportes
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            Análisis detallado y exportación de transacciones
-          </Typography>
-        </Box>
+    <Box sx={{ p: 3, maxWidth: 1100, margin: '0 auto' }}>
+      <Box
+        sx={{
+          display: 'flex',
+          flexDirection: { xs: 'column', sm: 'row' },
+          justifyContent: 'space-between',
+          alignItems: { xs: 'flex-start', sm: 'center' },
+          gap: 2,
+          mb: 3,
+        }}
+      >
+        <Typography variant="h4" sx={{ fontWeight: 'bold' }}>
+          Reportes y Exportación
+        </Typography>
+
         <Button
           variant="contained"
           color="success"
           startIcon={<DownloadIcon />}
-          onClick={handleExport}
-          disabled={loading || transactions.length === 0}
-          sx={{ borderRadius: 3, textTransform: 'none', fontWeight: 'bold' }}
+          onClick={exportToCSV}
+          disabled={filteredTransactions.length === 0}
+          sx={{ borderRadius: 2, fontWeight: 600 }}
         >
-          Exportar Excel
+          Exportar a CSV
         </Button>
       </Box>
 
-      {/* Tabla Resumen por Categoría */}
-      <Card sx={{ borderRadius: 3, border: '1px solid', borderColor: 'divider', mb: 4 }}>
-        <CardContent>
-          <Typography variant="h6" sx={{ fontWeight: 'bold', mb: 2 }}>
-            Gastos por Categoría
-          </Typography>
-
-          {loading ? (
-            <Skeleton variant="rectangular" height={200} sx={{ borderRadius: 2 }} />
-          ) : categorySummaries.length === 0 ? (
-            <Typography variant="body2" color="text.secondary" align="center" sx={{ py: 4 }}>
-              No hay transacciones de gasto registradas para generar el reporte.
+      {loading ? (
+        <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}>
+          <CircularProgress />
+        </Box>
+      ) : (
+        <>
+          {/* Gráfico de Tendencia Temporal */}
+          <Paper sx={{ p: 3, borderRadius: 3, mb: 4, boxShadow: 1 }}>
+            <Typography variant="h6" sx={{ fontWeight: 'bold', mb: 2 }}>
+              Evolución Temporal de Flujos
             </Typography>
-          ) : (
-            <TableContainer component={Paper} elevation={0} sx={{ bgcolor: 'transparent' }}>
-              <Table>
-                <TableHead>
-                  <TableRow>
-                    <TableCell sx={{ fontWeight: 'bold' }}>Categoría</TableCell>
-                    <TableCell align="center" sx={{ fontWeight: 'bold' }}>Transacciones</TableCell>
-                    <TableCell align="right" sx={{ fontWeight: 'bold' }}>Total Gastado</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {categorySummaries.map((row) => (
-                    <TableRow key={row.categoryName} hover>
-                      <TableCell component="th" scope="row">
-                        <Chip label={row.categoryName} size="small" variant="outlined" color="primary" />
-                      </TableCell>
-                      <TableCell align="center">{row.transactionCount}</TableCell>
-                      <TableCell align="right" sx={{ fontWeight: 'bold', color: 'error.main' }}>
-                        ₡{row.totalSpent.toLocaleString()}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </TableContainer>
-          )}
-        </CardContent>
-      </Card>
-    </Container>
+            <Divider sx={{ mb: 2 }} />
+            {timelineData.length === 0 ? (
+              <Typography color="text.secondary" align="center" sx={{ py: 4 }}>
+                No hay transacciones registradas para mostrar tendencias.
+              </Typography>
+            ) : (
+              <ResponsiveContainer width="100%" height={320}>
+                <AreaChart data={timelineData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="colorIngresos" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#10b981" stopOpacity={0.8} />
+                      <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
+                    </linearGradient>
+                    <linearGradient id="colorGastos" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#ef4444" stopOpacity={0.8} />
+                      <stop offset="95%" stopColor="#ef4444" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
+                  <XAxis dataKey="date" />
+                  <YAxis tickFormatter={(val) => `₡${val}`} />
+                  <RechartsTooltip formatter={(value: any) => formatCurrency(Number(value) || 0)} />
+                  <Area
+                    type="monotone"
+                    dataKey="Ingresos"
+                    stroke="#10b981"
+                    fillOpacity={1}
+                    fill="url(#colorIngresos)"
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey="Gastos"
+                    stroke="#ef4444"
+                    fillOpacity={1}
+                    fill="url(#colorGastos)"
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            )}
+          </Paper>
+
+          {/* Panel de Resumen de Exportación */}
+          <Paper sx={{ p: 3, borderRadius: 3, boxShadow: 1 }}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+              <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
+                Vista Previa de Datos a Exportar
+              </Typography>
+              <FormControl size="small" sx={{ minWidth: 150 }}>
+                <InputLabel>Filtrar por Tipo</InputLabel>
+                <Select
+                  value={filterType}
+                  label="Filtrar por Tipo"
+                  onChange={(e) => setFilterType(e.target.value)}
+                >
+                  <MenuItem value="all">Todos</MenuItem>
+                  <MenuItem value="income">Ingresos</MenuItem>
+                  <MenuItem value="expense">Gastos</MenuItem>
+                </Select>
+              </FormControl>
+            </Box>
+            <Divider sx={{ mb: 2 }} />
+
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+              <TableChartIcon color="primary" sx={{ fontSize: 40 }} />
+              <Box>
+                <Typography variant="body1" sx={{ fontWeight: 600 }}>
+                  Total de registros seleccionados: {filteredTransactions.length}
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  Presiona "Exportar a CSV" para descargar el reporte compatible con Microsoft Excel o Google Sheets.
+                </Typography>
+              </Box>
+            </Box>
+          </Paper>
+        </>
+      )}
+    </Box>
   );
 };
 
-export default ReportsView;
+export default Reports;
