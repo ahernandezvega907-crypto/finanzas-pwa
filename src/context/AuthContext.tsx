@@ -22,19 +22,27 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isPinLocked, setIsPinLocked] = useState(false);
 
   useEffect(() => {
-    // 1. Obtener sesión inicial
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      
-      // Si hay un PIN guardado en localStorage, bloqueamos la app al inicio
-      const storedPin = localStorage.getItem('app_pin_code');
-      if (session && storedPin) {
-        setIsPinLocked(true);
+    // 1. Obtener sesión inicial con manejo resiliente offline
+    const initSession = async () => {
+      try {
+        const { data } = await supabase.auth.getSession();
+        const currentSession = data?.session ?? null;
+
+        setSession(currentSession);
+        setUser(currentSession?.user ?? null);
+
+        const storedPin = localStorage.getItem('app_pin_code');
+        if (currentSession && storedPin) {
+          setIsPinLocked(true);
+        }
+      } catch (err) {
+        console.warn('Advertencia al restaurar sesión offline:', err);
+      } finally {
+        setLoading(false);
       }
-      
-      setLoading(false);
-    });
+    };
+
+    initSession();
 
     // 2. Escuchar cambios de estado en la autenticación (Login, Logout, Token Refresh)
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
@@ -47,24 +55,37 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const signInWithEmail = async (email: string, pass: string) => {
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password: pass,
-    });
-    return { error };
+    try {
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password: pass,
+      });
+      return { error };
+    } catch (err: any) {
+      return { error: err };
+    }
   };
 
   const signUpWithEmail = async (email: string, pass: string) => {
-    const { error } = await supabase.auth.signUp({
-      email,
-      password: pass,
-    });
-    return { error };
+    try {
+      const { error } = await supabase.auth.signUp({
+        email,
+        password: pass,
+      });
+      return { error };
+    } catch (err: any) {
+      return { error: err };
+    }
   };
 
   const signOut = async () => {
-    await supabase.auth.signOut();
-    setIsPinLocked(false);
+    try {
+      await supabase.auth.signOut();
+    } catch (err) {
+      console.warn('Error durante signOut:', err);
+    } finally {
+      setIsPinLocked(false);
+    }
   };
 
   return (

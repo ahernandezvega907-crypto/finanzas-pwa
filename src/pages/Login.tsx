@@ -34,6 +34,13 @@ const Login: React.FC = () => {
     e.preventDefault();
     setError(null);
     setSuccessMsg(null);
+
+    // Verificación preventiva de conexión
+    if (!navigator.onLine) {
+      setError('No tienes conexión a internet para autenticar tus credenciales. Si ya cuentas con una sesión previa en este dispositivo, utiliza el PIN de desbloqueo.');
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -51,7 +58,11 @@ const Login: React.FC = () => {
         setSuccessMsg('Registro exitoso. Revisa tu correo de confirmación o inicia sesión.');
       }
     } catch (err: any) {
-      setError(err.message || 'Ocurrió un error. Revisa tus datos.');
+      if (!navigator.onLine || err?.message?.toLowerCase().includes('fetch')) {
+        setError('No tienes conexión a internet para autenticar tus credenciales. Si ya cuentas con una sesión previa en este dispositivo, utiliza el PIN de desbloqueo.');
+      } else {
+        setError(err.message || 'Ocurrió un error al procesar tu solicitud. Revisa tus datos.');
+      }
     } finally {
       setLoading(false);
     }
@@ -147,7 +158,8 @@ const Login: React.FC = () => {
               'Ingresar de forma segura'
             ) : (
               'Crear Cuenta'
-            )}
+            )
+          }
           </Button>
         </Box>
       </Card>

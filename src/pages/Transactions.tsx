@@ -1,197 +1,220 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   Box,
   Typography,
-  Paper,
   Button,
-  List,
-  ListItem,
-  ListItemText,
-  ListItemIcon,
-  IconButton,
-  Chip,
   Dialog,
   DialogTitle,
   DialogContent,
   DialogActions,
   TextField,
-  FormControl,
-  InputLabel,
-  Select,
   MenuItem,
   CircularProgress,
   Alert,
+  IconButton,
+  List,
+  ListItem,
+  ListItemText,
+  Chip,
+  Paper,
+  Snackbar,
 } from '@mui/material';
-import {
-  Add as AddIcon,
-  Delete as DeleteIcon,
-  Edit as EditIcon,
-  TrendingUp as IncomeIcon,
-  TrendingDown as ExpenseIcon,
-} from '@mui/icons-material';
-import { useTransactions } from '../features/transactions/hooks/useTransactions';
-import { useCategories } from '../hooks/useCategories';
+import AddIcon from '@mui/icons-material/Add';
+import EditIcon from '@mui/icons-material/Edit';
+import DeleteIcon from '@mui/icons-material/Delete';
+import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
+import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward';
 
-// Categorías por defecto si la base de datos o el hook no devuelven datos completos
+import { useTransactions } from '../features/transactions/hooks/useTransactions';
+import { useCategories } from '../features/categories/hooks/useCategories';
+
+if (typeof window !== 'undefined') {
+  window.addEventListener('vite:preloadError', () => {
+    window.location.reload();
+  });
+}
+
 const DEFAULT_CATEGORIES = [
-  { id: 'cat-1', name: 'Alimentación', type: 'expense' },
-  { id: 'cat-2', name: 'Vivienda', type: 'expense' },
-  { id: 'cat-3', name: 'Transporte', type: 'expense' },
-  { id: 'cat-4', name: 'Entretenimiento', type: 'expense' },
-  { id: 'cat-5', name: 'Salud', type: 'expense' },
-  { id: 'cat-6', name: 'Otros', type: 'expense' },
-  { id: 'cat-7', name: 'Salario', type: 'income' },
-  { id: 'cat-8', name: 'Ventas / Negocio', type: 'income' },
+  { id: '11111111-1111-4111-8111-111111111111', name: 'Alimentación', type: 'expense' },
+  { id: '22222222-2222-4222-8222-222222222222', name: 'Vivienda', type: 'expense' },
+  { id: '33333333-3333-4333-8333-333333333333', name: 'Transporte', type: 'expense' },
+  { id: '44444444-4444-4444-8444-444444444444', name: 'Entretenimiento', type: 'expense' },
+  { id: '55555555-5555-4555-8555-555555555555', name: 'Salud', type: 'expense' },
+  { id: '66666666-6666-4666-8666-666666666666', name: 'Otros', type: 'expense' },
+  { id: '77777777-7777-4777-8777-777777777777', name: 'Salario', type: 'income' },
+  { id: '88888888-8888-4888-8888-888888888888', name: 'Ventas / Negocio', type: 'income' },
 ];
 
-const Transactions: React.FC = () => {
-  const {
-    transactions,
-    loading,
-    error,
-    createTransaction,
-    updateTransaction,
-    deleteTransaction,
-    selectedTransaction,
-    startEditing,
-    cancelEditing,
-  } = useTransactions();
+export const Transactions: React.FC = () => {
+  const { transactions, loading, error, createTransaction, updateTransaction, deleteTransaction } = useTransactions();
+  const { categoriesQuery } = useCategories();
+  const loadedCategories = categoriesQuery?.data;
 
-  const { categories: loadedCategories } = useCategories();
-
-  // Usar categorías del backend o los fallbacks por defecto
-  const allCategories = loadedCategories && loadedCategories.length > 0 
-    ? loadedCategories 
-    : DEFAULT_CATEGORIES;
-
-  const [openModal, setOpenModal] = useState(false);
+  const [open, setOpen] = useState(false);
+  const [selectedTransaction, setSelectedTransaction] = useState<any | null>(null);
+  const [type, setType] = useState<'expense' | 'income'>('expense');
   const [amount, setAmount] = useState('');
-  const [type, setType] = useState<'income' | 'expense'>('expense');
   const [categoryId, setCategoryId] = useState('');
   const [description, setDescription] = useState('');
-  const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
+  const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
+
   const [submitting, setSubmitting] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
 
-  const filteredCategories = allCategories.filter((cat) => cat.type === type);
+  // Estado para las notificaciones Toast
+  const [toast, setToast] = useState<{ open: boolean; message: string; severity: 'success' | 'error' | 'info' }>({
+    open: false,
+    message: '',
+    severity: 'success',
+  });
 
-  const handleOpenNew = () => {
-    cancelEditing();
-    setAmount('');
-    setType('expense');
-    setCategoryId('');
-    setDescription('');
-    setDate(new Date().toISOString().slice(0, 10));
-    setActionError(null);
-    setOpenModal(true);
+  const showToast = (message: string, severity: 'success' | 'error' | 'info' = 'success') => {
+    setToast({ open: true, message, severity });
   };
 
-  const handleOpenEdit = (tx: any) => {
-    startEditing(tx);
-    setAmount(tx.amount.toString());
-    setType(tx.type);
-    setCategoryId(tx.categoryId || tx.category_id || '');
-    setDescription(tx.description || '');
-    setDate(tx.date || tx.transaction_date || (tx.created_at ? tx.created_at.slice(0, 10) : new Date().toISOString().slice(0, 10)));
+  const handleCloseToast = () => {
+    setToast((prev) => ({ ...prev, open: false }));
+  };
+
+  const combinedCategories = useMemo(() => {
+    if (loadedCategories && loadedCategories.length > 0) {
+      return loadedCategories;
+    }
+    return DEFAULT_CATEGORIES;
+  }, [loadedCategories]);
+
+  const filteredCategories = useMemo(() => {
+    return combinedCategories.filter((cat: any) => cat.type === type);
+  }, [combinedCategories, type]);
+
+  const handleOpen = (tx?: any) => {
+    if (tx) {
+      setSelectedTransaction(tx);
+      setType(tx.type || 'expense');
+      setAmount(tx.amount ? String(tx.amount) : '');
+      setCategoryId(tx.category_id || tx.categoryId || '');
+      setDescription(tx.description || '');
+      setDate(tx.date ? tx.date.split('T')[0] : new Date().toISOString().split('T')[0]);
+    } else {
+      setSelectedTransaction(null);
+      setType('expense');
+      setAmount('');
+      setCategoryId('');
+      setDescription('');
+      setDate(new Date().toISOString().split('T')[0]);
+    }
     setActionError(null);
-    setOpenModal(true);
+    setOpen(true);
   };
 
   const handleClose = () => {
-    cancelEditing();
-    setOpenModal(false);
+    setOpen(false);
+    setSelectedTransaction(null);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const parsedAmount = parseFloat(amount);
-    if (isNaN(parsedAmount) || parsedAmount <= 0 || !categoryId) {
-      setActionError('Por favor ingresa un monto válido y selecciona una categoría.');
+    if (isNaN(parsedAmount) || parsedAmount <= 0) {
+      setActionError('Por favor ingresa un monto válido.');
       return;
     }
 
     setSubmitting(true);
     setActionError(null);
 
-    const dto = {
+    const payload = {
       amount: parsedAmount,
       type,
-      categoryId,
+      categoryId: categoryId || undefined,
       description: description.trim(),
       date,
     };
 
-    if (selectedTransaction) {
-      await updateTransaction(selectedTransaction.id, dto);
-    } else {
-      await createTransaction(dto);
+    try {
+      if (selectedTransaction) {
+        await updateTransaction(selectedTransaction.id, payload);
+        showToast('Movimiento actualizado con éxito');
+      } else {
+        await createTransaction(payload as any);
+        showToast('Movimiento registrado con éxito');
+      }
+      handleClose();
+    } catch (err: any) {
+      setActionError(err.message || 'Ocurrió un error al guardar el movimiento.');
+    } finally {
+      setSubmitting(false);
     }
-
-    setSubmitting(false);
-    handleClose();
   };
 
   const handleDelete = async (id: string) => {
-    if (window.confirm('¿Estás seguro de eliminar este movimiento?')) {
-      await deleteTransaction(id);
+    if (window.confirm('¿Deseas eliminar este movimiento?')) {
+      try {
+        await deleteTransaction(id);
+        showToast('Movimiento eliminado', 'info');
+      } catch (err: any) {
+        showToast(err.message || 'Error al eliminar el movimiento', 'error');
+      }
     }
   };
 
+  const getCategoryName = (catId?: string) => {
+    if (!catId) return 'General';
+    const found = combinedCategories.find((c: any) => c.id === catId);
+    return found ? found.name : 'General';
+  };
+
   return (
-    <Box sx={{ p: { xs: 2, md: 3 }, maxWidth: 900, mx: 'auto' }}>
+    <Box sx={{ p: 3, maxWidth: 900, margin: '0 auto' }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-        <Typography variant="h4" sx={{ fontWeight: 700 }}>
+        <Typography variant="h4" sx={{ fontWeight: 'bold' }}>
           Movimientos
         </Typography>
-        <Button variant="contained" startIcon={<AddIcon />} onClick={handleOpenNew}>
+        <Button
+          variant="contained"
+          startIcon={<AddIcon />}
+          onClick={() => handleOpen()}
+          sx={{ borderRadius: 2 }}
+        >
           Nuevo Movimiento
         </Button>
       </Box>
 
-      {error && <Alert severity="error" sx={{ mb: 2 }}>{error.message || 'Error al procesar transacciones'}</Alert>}
+      {/* Solo se muestra la alerta si hay error Y el navegador está ONLINE */}
+      {error && navigator.onLine && (
+        <Alert severity="error" sx={{ mb: 2 }}>
+          {typeof error === 'string' ? error : (error as any).message || 'Error al cargar transacciones'}
+        </Alert>
+      )}
 
-      {loading && transactions.length === 0 ? (
-        <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
+      {loading ? (
+        <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
           <CircularProgress />
         </Box>
       ) : transactions.length === 0 ? (
-        <Paper sx={{ p: 4, textAlign: 'center', borderRadius: 3 }}>
-          <Typography color="text.secondary">
-            No tienes movimientos registrados. Haz clic en "Nuevo Movimiento" para agregar uno.
-          </Typography>
+        <Paper sx={{ p: 4, textAlign: 'center', borderRadius: 2 }}>
+          <Typography color="text.secondary">No hay movimientos registrados.</Typography>
         </Paper>
       ) : (
-        <Paper sx={{ borderRadius: 3, overflow: 'hidden' }}>
+        <Paper sx={{ borderRadius: 2, overflow: 'hidden' }}>
           <List disablePadding>
-            {transactions.map((tx) => {
-              const isIncome = tx.type === 'income';
-              
-              // Buscar nombre de categoría o dar valor general
-              const foundCategory = allCategories.find((c) => c.id === (tx.categoryId || (tx as any).category_id));
-              const catName = foundCategory ? foundCategory.name : ((tx as any).category || 'General');
-              
-              // Evitar "undefined" resolviendo la fecha desde cualquier campo disponible
-              const displayDate = tx.date || (tx as any).transaction_date || ((tx as any).created_at ? (tx as any).created_at.slice(0, 10) : 'Fecha no registrada');
+            {transactions.map((tx: any, index: number) => {
+              const isExpense = tx.type === 'expense';
+              const catName = getCategoryName(tx.category_id || tx.categoryId);
 
               return (
                 <ListItem
-                  key={tx.id}
-                  divider
-                  sx={{ pr: { xs: 12, sm: 16 } }} // Reserva espacio a la derecha para no solapar montos ni botones
+                  key={tx.id || index}
+                  divider={index !== transactions.length - 1}
                   secondaryAction={
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                       <Typography
                         variant="subtitle1"
-                        sx={{
-                          fontWeight: 700,
-                          color: isIncome ? 'success.main' : 'error.main',
-                          whiteSpace: 'nowrap',
-                          mr: 1
-                        }}
+                        sx={{ color: isExpense ? 'error.main' : 'success.main', fontWeight: 'bold', mr: 1 }}
                       >
-                        {isIncome ? '+' : '-'}₡{Number(tx.amount).toLocaleString()}
+                        {isExpense ? '-' : '+'}₡{tx.amount?.toLocaleString('es-CR')}
                       </Typography>
-                      <IconButton edge="end" onClick={() => handleOpenEdit(tx)}>
+                      <IconButton edge="end" onClick={() => handleOpen(tx)}>
                         <EditIcon fontSize="small" />
                       </IconButton>
                       <IconButton edge="end" color="error" onClick={() => handleDelete(tx.id)}>
@@ -200,19 +223,24 @@ const Transactions: React.FC = () => {
                     </Box>
                   }
                 >
-                  <ListItemIcon sx={{ minWidth: 40 }}>
-                    {isIncome ? <IncomeIcon color="success" /> : <ExpenseIcon color="error" />}
-                  </ListItemIcon>
+                  <Box sx={{ mr: 2 }}>
+                    {isExpense ? (
+                      <ArrowDownwardIcon color="error" />
+                    ) : (
+                      <ArrowUpwardIcon color="success" />
+                    )}
+                  </Box>
                   <ListItemText
                     primary={tx.description || catName}
-                    secondary={`${displayDate} • ${catName}`}
+                    secondary={`${tx.date ? new Date(tx.date).toLocaleDateString('es-CR') : 'Sin fecha'} · ${catName}`}
+                    slotProps={{ primary: { sx: { fontWeight: 600 } } }}
                   />
                   <Chip
-                    label={isIncome ? 'Ingreso' : 'Gasto'}
+                    label={isExpense ? 'Gasto' : 'Ingreso'}
                     size="small"
-                    color={isIncome ? 'success' : 'error'}
+                    color={isExpense ? 'error' : 'success'}
                     variant="outlined"
-                    sx={{ mr: 2, display: { xs: 'none', md: 'inline-flex' } }}
+                    sx={{ mr: 2, display: { xs: 'none', sm: 'inline-flex' } }}
                   />
                 </ListItem>
               );
@@ -221,76 +249,71 @@ const Transactions: React.FC = () => {
         </Paper>
       )}
 
-      {/* Modal Crear / Editar */}
-      <Dialog open={openModal} onClose={handleClose} fullWidth maxWidth="xs">
+      <Dialog open={open} onClose={handleClose} fullWidth maxWidth="xs">
         <form onSubmit={handleSubmit}>
-          <DialogTitle>
+          <DialogTitle sx={{ fontWeight: 'bold' }}>
             {selectedTransaction ? 'Editar Movimiento' : 'Registrar Movimiento'}
           </DialogTitle>
-          <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
-            {actionError && <Alert severity="error">{actionError}</Alert>}
+          <DialogContent dividers>
+            {actionError && <Alert severity="error" sx={{ mb: 2 }}>{actionError}</Alert>}
 
-            <FormControl fullWidth required>
-              <InputLabel id="tx-type-label">Tipo de Movimiento</InputLabel>
-              <Select
-                labelId="tx-type-label"
-                value={type}
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
+              <TextField
+                select
                 label="Tipo de Movimiento"
+                value={type}
                 onChange={(e) => {
-                  setType(e.target.value as 'income' | 'expense');
+                  setType(e.target.value as 'expense' | 'income');
                   setCategoryId('');
                 }}
+                fullWidth
               >
                 <MenuItem value="expense">Gasto</MenuItem>
                 <MenuItem value="income">Ingreso</MenuItem>
-              </Select>
-            </FormControl>
+              </TextField>
 
-            <TextField
-              label="Monto (₡)"
-              type="number"
-              fullWidth
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
-              required
-              slotProps={{ htmlInput: { min: 0.01, step: 'any' } }}
-            />
+              <TextField
+                label="Monto (₡)"
+                type="number"
+                value={amount}
+                onChange={(e) => setAmount(e.target.value)}
+                required
+                fullWidth
+              />
 
-            <FormControl fullWidth required>
-              <InputLabel id="tx-category-label">Categoría</InputLabel>
-              <Select
-                labelId="tx-category-label"
-                value={categoryId}
+              <TextField
+                select
                 label="Categoría"
+                value={categoryId}
                 onChange={(e) => setCategoryId(e.target.value)}
+                required
+                fullWidth
               >
-                {filteredCategories.map((cat) => (
+                {filteredCategories.map((cat: any) => (
                   <MenuItem key={cat.id} value={cat.id}>
                     {cat.name}
                   </MenuItem>
                 ))}
-              </Select>
-            </FormControl>
+              </TextField>
 
-            <TextField
-              label="Fecha"
-              type="date"
-              fullWidth
-              value={date}
-              onChange={(e) => setDate(e.target.value)}
-              slotProps={{ inputLabel: { shrink: true } }}
-              required
-            />
+              <TextField
+                label="Descripción o Nota"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                fullWidth
+              />
 
-            <TextField
-              label="Descripción o Nota"
-              fullWidth
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="Ej. Supermercado, Almuerzo, etc."
-            />
+              <TextField
+                label="Fecha"
+                type="date"
+                value={date}
+                onChange={(e) => setDate(e.target.value)}
+                slotProps={{ inputLabel: { shrink: true } }}
+                required
+                fullWidth
+              />
+            </Box>
           </DialogContent>
-
           <DialogActions sx={{ p: 2 }}>
             <Button onClick={handleClose} disabled={submitting}>
               Cancelar
@@ -305,6 +328,18 @@ const Transactions: React.FC = () => {
           </DialogActions>
         </form>
       </Dialog>
+
+      {/* Componente de Notificaciones Toast (Snackbar) */}
+      <Snackbar
+        open={toast.open}
+        autoHideDuration={3000}
+        onClose={handleCloseToast}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert onClose={handleCloseToast} severity={toast.severity} sx={{ width: '100%' }}>
+          {toast.message}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 };
