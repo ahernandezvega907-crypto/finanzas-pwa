@@ -1,224 +1,281 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import {
   Box,
   Typography,
   Paper,
   TextField,
-  Button,
-  CircularProgress,
-  Alert,
+  IconButton,
   Avatar,
+  CircularProgress,
   Chip,
   Divider,
 } from '@mui/material';
-import { SmartToy as RobotIcon, Send as SendIcon, AutoAwesome as SparklesIcon } from '@mui/icons-material';
-import { askAiGuru, FinancialContext } from '../services/ai.service';
-import { supabase } from '../lib/supabase';
+import SendIcon from '@mui/icons-material/Send';
+import SmartToyIcon from '@mui/icons-material/SmartToy';
+import PersonIcon from '@mui/icons-material/Person';
+import LightbulbIcon from '@mui/icons-material/Lightbulb';
+
+import { useTransactions } from '../features/transactions/hooks/useTransactions';
+import { useCategories } from '../features/categories/hooks/useCategories';
 
 interface Message {
-  sender: 'user' | 'ai';
+  id: string;
+  sender: 'ai' | 'user';
   text: string;
+  timestamp: string;
 }
 
-const AiGuru: React.FC = () => {
+export const AiGuru: React.FC = () => {
+  const { transactions, loading } = useTransactions();
+  const { categoriesQuery } = useCategories();
+  const categories = categoriesQuery?.data || [];
+
+  const [input, setInput] = useState('');
+  const [isThinking, setIsThinking] = useState(false);
   const [messages, setMessages] = useState<Message[]>([
     {
+      id: '1',
       sender: 'ai',
-      text: '¡Hola! Soy tu Gurú Financiero. He revisado tus movimientos y presupuestos de este mes. ¿En qué te puedo ayudar hoy?',
+      text: '¡Hola! Soy AiGuru, tu asesor financiero personal. Puedo analizar tu balance, gastos por categoría o darte recomendaciones de ahorro. ¿En qué puedo ayudarte hoy?',
+      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
     },
   ]);
-  const [input, setInput] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [finContext, setFinContext] = useState<FinancialContext | null>(null);
 
-  // Obtener contexto actual
-  useEffect(() => {
-    async function loadContext() {
-      try {
-        const now = new Date();
-        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10);
-        const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59).toISOString().slice(0, 10);
+  const chatEndRef = useRef<HTMLDivElement | null>(null);
 
-        const [txRes, bRes] = await Promise.all([
-          supabase
-            .from('transactions')
-            .select('amount, type, category_id, categories(name)')
-            .gte('transaction_date', startOfMonth)
-            .lte('transaction_date', endOfMonth),
-          supabase
-            .from('budgets')
-            .select('amount_limit, category_id, categories(name)'),
-        ]);
-
-        let income = 0;
-        let expenses = 0;
-        const spentMap: Record<string, number> = {};
-
-        (txRes.data || []).forEach((tx: any) => {
-          const amt = Number(tx.amount || 0);
-          if (tx.type === 'income') {
-            income += amt;
-          } else {
-            expenses += amt;
-            const catName = tx.categories?.name || 'General';
-            spentMap[catName] = (spentMap[catName] || 0) + amt;
-          }
-        });
-
-        const budgetsStatus = (bRes.data || []).map((b: any) => {
-          const catName = b.categories?.name || 'Categoría';
-          return {
-            category: catName,
-            limit: Number(b.amount_limit || 0),
-            spent: spentMap[catName] || 0,
-          };
-        });
-
-        setFinContext({
-          totalIncome: income,
-          totalExpenses: expenses,
-          balance: income - expenses,
-          budgetsStatus,
-        });
-      } catch (err) {
-        console.error('Error al cargar contexto para IA:', err);
-      }
-    }
-
-    loadContext();
-  }, []);
-
-  const handleSend = async (e?: React.FormEvent) => {
-    if (e) e.preventDefault();
-    if (!input.trim() || loading) return;
-
-    const userMsg = input.trim();
-    setInput('');
-    setMessages((prev) => [...prev, { sender: 'user', text: userMsg }]);
-    setLoading(true);
-
-    const reply = await askAiGuru(userMsg, finContext || undefined);
-
-    setMessages((prev) => [...prev, { sender: 'ai', text: reply }]);
-    setLoading(false);
+  const scrollToBottom = () => {
+    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
-  const handleQuickPrompt = (promptText: string) => {
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages, isThinking]);
+
+  // Resumen del estado financiero para las respuestas inteligentes
+  const financialSummary = useMemo(() => {
+    let income = 0;
+    let expense = 0;
+    const catMap: Record<string, number> = {};
+
+    transactions.forEach((tx: any) => {
+      const amt = Number(tx.amount) || 0;
+      if (tx.type === 'income') {
+        income += amt;
+      } else if (tx.type === 'expense') {
+        expense += amt;
+        const catId = tx.category_id || tx.categoryId;
+        const catObj = categories.find((c: any) => c.id === catId);
+        const catName = catObj ? catObj.name : 'Otros';
+        catMap[catName] = (catMap[catName] || 0) + amt;
+      }
+    });
+
+    const balance = income - expense;
+    let highestExpenseCat = 'Ninguna';
+    let maxExpense = 0;
+
+    Object.entries(catMap).forEach(([cat, amt]) => {
+      if (amt > maxExpense) {
+        maxExpense = amt;
+        highestExpenseCat = cat;
+      }
+    });
+
+    return { income, expense, balance, highestExpenseCat, maxExpense };
+  }, [transactions, categories]);
+
+  const generateAiResponse = (userQuery: string): string => {
+    const q = userQuery.toLowerCase();
+    const { income, expense, balance, highestExpenseCat, maxExpense } = financialSummary;
+
+    const formatCurr = (num: number) => `₡${num.toLocaleString('es-CR')}`;
+
+    if (q.includes('resumen') || q.includes('estado') || q.includes('balance') || q.includes('cómo voy')) {
+      return `📊 **Resumen Financiero:**\n- Ingresos totales: ${formatCurr(income)}\n- Gastos totales: ${formatCurr(expense)}\n- Balance actual: **${formatCurr(balance)}**\n\n${
+        balance >= 0
+          ? '¡Vas por buen camino! Mantienes un superávit positivo.'
+          : '⚠️ Atención: Tus gastos superan tus ingresos actuales. Te sugiero revisar tus presupuestos.'
+      }`;
+    }
+
+    if (q.includes('ahorro') || q.includes('ahorrar') || q.includes('consejo') || q.includes('recomiendas')) {
+      if (highestExpenseCat !== 'Ninguna') {
+        return `💡 **Consejo de Ahorro:**\nTu categoría con mayor gasto es **${highestExpenseCat}** con un total de **${formatCurr(maxExpense)}**.\n\nTe recomiendo intentar reducir un 10% a 15% en esta categoría durante el próximo mes. Podrías ahorrar aproximadamente **${formatCurr(Math.round(maxExpense * 0.12))}**.`;
+      }
+      return '💡 **Consejo de Ahorro:**\nIntenta aplicar la regla 50/30/20: destina el 50% de tus ingresos a necesidades primarias, el 30% a gustos personales y el 20% directamente al ahorro.';
+    }
+
+    if (q.includes('gasto') || q.includes('mayor gasto') || q.includes('categoría')) {
+      if (highestExpenseCat !== 'Ninguna') {
+        return `💸 Tu categoría con mayor gasto registrado es **${highestExpenseCat}**, sumando **${formatCurr(maxExpense)}**.`;
+      }
+      return 'Aún no registras gastos suficientes para determinar tu mayor categoría de consumo.';
+    }
+
+    return `Entiendo tu consulta sobre "${userQuery}". Basado en tu registro actual, tienes un balance de ${formatCurr(balance)}. Te sugiero establecer límites de gasto en tus categorías principales para optimizar tus presupuestos.`;
+  };
+
+  const handleSend = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!input.trim() || isThinking) return;
+
+    const userMsg: Message = {
+      id: crypto.randomUUID(),
+      sender: 'user',
+      text: input,
+      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+    };
+
+    setMessages((prev) => [...prev, userMsg]);
+    const queryText = input;
+    setInput('');
+    setIsThinking(true);
+
+    setTimeout(() => {
+      const aiReplyText = generateAiResponse(queryText);
+      const aiMsg: Message = {
+        id: crypto.randomUUID(),
+        sender: 'ai',
+        text: aiReplyText,
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      };
+      setMessages((prev) => [...prev, aiMsg]);
+      setIsThinking(false);
+    }, 1000);
+  };
+
+  const handlePromptClick = (promptText: string) => {
     setInput(promptText);
   };
 
   return (
-    <Box sx={{ p: { xs: 2, md: 3 }, maxWidth: 850, mx: 'auto' }}>
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 2 }}>
-        <Avatar sx={{ bgcolor: 'primary.main' }}>
-          <RobotIcon />
-        </Avatar>
-        <Box>
-          <Typography variant="h5" sx={{ fontWeight: 700 }}>
-            Gurú IA Financiero
-          </Typography>
-          <Typography variant="caption" color="text.secondary">
-            Asesoramiento personalizado basado en tus datos reales
-          </Typography>
-        </Box>
-      </Box>
+    <Box sx={{ p: 3, maxWidth: 900, margin: '0 auto', height: 'calc(100vh - 120px)', display: 'flex', flexDirection: 'column' }}>
+      <Typography variant="h4" sx={{ fontWeight: 'bold', mb: 2 }}>
+        AiGuru - Asistente Financiero
+      </Typography>
 
       {/* Sugerencias Rápidas */}
       <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mb: 2 }}>
         <Chip
-          icon={<SparklesIcon />}
-          label="¿Cómo voy este mes?"
-          onClick={() => handleQuickPrompt('¿Cómo voy este mes? Dame un resumen breve de mis finanzas.')}
+          icon={<LightbulbIcon />}
+          label="¿Cómo está mi balance general?"
+          onClick={() => handlePromptClick('¿Cómo está mi balance general?')}
           clickable
           color="primary"
           variant="outlined"
         />
         <Chip
-          icon={<SparklesIcon />}
-          label="¿En qué puedo ahorrar?"
-          onClick={() => handleQuickPrompt('¿En qué categoría estoy gastando más y cómo puedo recortar gastos?')}
+          icon={<LightbulbIcon />}
+          label="¿Cuál es mi mayor gasto?"
+          onClick={() => handlePromptClick('¿Cuál es mi mayor gasto?')}
           clickable
           color="primary"
           variant="outlined"
         />
         <Chip
-          icon={<SparklesIcon />}
-          label="Revisar presupuestos"
-          onClick={() => handleQuickPrompt('¿Tengo alguna categoría de presupuesto en riesgo de sobrepasarse?')}
+          icon={<LightbulbIcon />}
+          label="Dame un consejo de ahorro"
+          onClick={() => handlePromptClick('Dame un consejo de ahorro')}
           clickable
           color="primary"
           variant="outlined"
         />
       </Box>
 
-      {/* Historial de Mensajes */}
+      {/* Ventana del Chat */}
       <Paper
         sx={{
-          p: 2,
-          height: 420,
-          overflowY: 'auto',
+          flex: 1,
+          p: 3,
           borderRadius: 3,
-          mb: 2,
+          overflowY: 'auto',
           display: 'flex',
           flexDirection: 'column',
           gap: 2,
-          backgroundColor: 'background.default',
+          boxShadow: 1,
+          bgcolor: 'background.default',
         }}
       >
-        {messages.map((msg, index) => {
-          const isAi = msg.sender === 'ai';
-          return (
+        {loading ? (
+          <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}>
+            <CircularProgress />
+          </Box>
+        ) : (
+          messages.map((msg) => (
             <Box
-              key={index}
+              key={msg.id}
               sx={{
                 display: 'flex',
-                justifyContent: isAi ? 'flex-start' : 'flex-end',
+                gap: 1.5,
+                flexDirection: msg.sender === 'user' ? 'row-reverse' : 'row',
+                alignItems: 'flex-start',
               }}
             >
-              <Paper
-                elevation={1}
+              <Avatar
                 sx={{
-                  p: 2,
-                  maxWidth: '80%',
-                  borderRadius: 3,
-                  bgcolor: isAi ? 'background.paper' : 'primary.main',
-                  color: isAi ? 'text.primary' : 'primary.contrastText',
-                  whiteSpace: 'pre-line',
+                  bgcolor: msg.sender === 'user' ? 'primary.main' : 'secondary.main',
+                  width: 36,
+                  height: 36,
                 }}
               >
-                <Typography variant="body2">{msg.text}</Typography>
-              </Paper>
+                {msg.sender === 'user' ? <PersonIcon fontSize="small" /> : <SmartToyIcon fontSize="small" />}
+              </Avatar>
+
+              <Box sx={{ maxWidth: '75%' }}>
+                <Paper
+                  sx={{
+                    p: 2,
+                    borderRadius: 3,
+                    bgcolor: msg.sender === 'user' ? 'primary.main' : 'background.paper',
+                    color: msg.sender === 'user' ? '#fff' : 'text.primary',
+                    boxShadow: 1,
+                  }}
+                >
+                  <Typography variant="body1" sx={{ whitespace: 'pre-line' }}>
+                    {msg.text}
+                  </Typography>
+                </Paper>
+                <Typography
+                  variant="caption"
+                  color="text.secondary"
+                  sx={{ display: 'block', mt: 0.5, textAlign: msg.sender === 'user' ? 'right' : 'left' }}
+                >
+                  {msg.timestamp}
+                </Typography>
+              </Box>
             </Box>
-          );
-        })}
-        {loading && (
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, p: 1 }}>
-            <CircularProgress size={20} />
-            <Typography variant="caption" color="text.secondary">
-              El Gurú está analizando tus finanzas...
+          ))
+        )}
+
+        {isThinking && (
+          <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center' }}>
+            <Avatar sx={{ bgcolor: 'secondary.main', width: 36, height: 36 }}>
+              <SmartToyIcon fontSize="small" />
+            </Avatar>
+            <Typography variant="body2" color="text.secondary">
+              AiGuru está analizando tus finanzas...
             </Typography>
           </Box>
         )}
+
+        <div ref={chatEndRef} />
       </Paper>
 
-      {/* Formulario de Entrada */}
+      <Divider sx={{ my: 2 }} />
+
+      {/* Input para enviar mensajes */}
       <Box component="form" onSubmit={handleSend} sx={{ display: 'flex', gap: 1 }}>
         <TextField
           fullWidth
-          placeholder="Hazle una pregunta a tu Gurú..."
+          placeholder="Hazle una pregunta a AiGuru..."
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          disabled={loading}
           size="medium"
+          sx={{ '& .MuiOutlinedInput-root': { borderRadius: 3 } }}
         />
-        <Button
-          type="submit"
-          variant="contained"
-          disabled={loading || !input.trim()}
-          sx={{ px: 3 }}
-        >
+        <IconButton type="submit" color="primary" disabled={!input.trim() || isThinking} sx={{ p: 1.5 }}>
           <SendIcon />
-        </Button>
+        </IconButton>
       </Box>
     </Box>
   );
