@@ -94,7 +94,7 @@ export const AiGuru: React.FC = () => {
   }, [transactions, categories]);
 
   const askGuru = async (userQuery: string): Promise<string> => {
-    const { data, error } = await supabase.functions.invoke('gemini-advice', {
+    const { data, error } = await supabase.functions.invoke("gemini-advice", {
       body: {
         userPrompt: userQuery,
         context: financialSummary,
@@ -102,14 +102,28 @@ export const AiGuru: React.FC = () => {
     });
 
     if (error) {
-      throw new Error(error.message || 'No se pudo contactar al Gurú IA.');
+      // Extrae el mensaje real del body si el status HTTP es distinto de 2xx (ej. 429)
+      const contextResponse = (error as any)?.context as Response | undefined;
+
+      if (contextResponse) {
+        try {
+          const errBody = await contextResponse.clone().json();
+          if (errBody?.error) {
+            throw new Error(errBody.error);
+          }
+        } catch {
+          // Fallback al mensaje genérico si no se puede parsear
+        }
+      }
+
+      throw new Error(error.message || "No se pudo contactar al Gurú IA.");
     }
 
     if (data?.error) {
       throw new Error(data.error);
     }
 
-    return data?.text || 'No se obtuvo una respuesta del Gurú IA.';
+    return data?.text || "No se obtuvo una respuesta del Gurú IA.";
   };
 
   const handleSend = async (e?: React.FormEvent) => {

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Box,
   Typography,
@@ -13,6 +14,7 @@ import {
   Stack,
   InputAdornment,
   IconButton,
+  CircularProgress,
 } from '@mui/material';
 import {
   Person as PersonIcon,
@@ -23,10 +25,14 @@ import {
   Visibility,
   VisibilityOff,
   Delete as DeleteIcon,
+  Gavel as GavelIcon,
+  Warning as WarningIcon,
 } from '@mui/icons-material';
 import { useAuth } from '../context/AuthContext';
+import { supabase } from '../lib/supabase';
 
 const Settings: React.FC = () => {
+  const navigate = useNavigate();
   const { user, signOut, setIsPinLocked } = useAuth();
   const [fullName, setFullName] = useState(user?.user_metadata?.full_name || '');
   const [notifications, setNotifications] = useState(true);
@@ -38,6 +44,10 @@ const Settings: React.FC = () => {
   const [hasExistingPin, setHasExistingPin] = useState(false);
   const [showPin, setShowPin] = useState(false);
   const [pinError, setPinError] = useState<string | null>(null);
+
+  // Estado para la eliminación de cuenta
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   useEffect(() => {
     const existing = localStorage.getItem('app_pin_code');
@@ -80,6 +90,39 @@ const Settings: React.FC = () => {
     setIsPinLocked(true);
   };
 
+  // Función para eliminar cuenta y limpiar Supabase (Derecho al Olvido)
+  const handleDeleteAccount = async () => {
+    const confirmed = window.confirm(
+      '⚠️ ¿Estás completamente seguro de borrar tu cuenta?\n\nEsta acción eliminará de forma PERMANENTE e IRREVERSIBLE todos tus gastos, ingresos, presupuestos y configuraciones almacenadas. No podrás recuperar esta información.'
+    );
+
+    if (!confirmed) return;
+
+    setDeleting(true);
+    setDeleteError(null);
+
+    try {
+      if (user) {
+        // 1. Borrar registros asociados al perfil del usuario en Supabase (usando profile_id)
+        await supabase.from('transactions').delete().eq('profile_id', user.id);
+        await supabase.from('budgets').delete().eq('profile_id', user.id);
+        await supabase.from('categories').delete().eq('profile_id', user.id);
+
+        // 2. Limpiar datos de seguridad locales
+        localStorage.removeItem('app_pin_code');
+
+        // 3. Cerrar sesión y redireccionar
+        await signOut();
+        navigate('/login', { replace: true });
+      }
+    } catch (err: any) {
+      console.error('Error al eliminar la cuenta:', err);
+      setDeleteError('Ocurrió un problema al intentar eliminar tus datos. Por favor, intenta de nuevo.');
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   return (
     <Box sx={{ p: { xs: 2, md: 3 }, maxWidth: 800, mx: 'auto', display: 'flex', flexDirection: 'column', gap: 3 }}>
       {/* Encabezado */}
@@ -88,13 +131,19 @@ const Settings: React.FC = () => {
           Ajustes
         </Typography>
         <Typography variant="body2" color="text.secondary">
-          Gestiona las preferencias de tu cuenta y la configuración de la aplicación.
+          Gestiona las preferencias de tu cuenta, seguridad y privacidad de datos.
         </Typography>
       </Box>
 
       {savedSuccess && (
         <Alert severity="success" sx={{ borderRadius: 2 }}>
           {savedSuccess}
+        </Alert>
+      )}
+
+      {deleteError && (
+        <Alert severity="error" sx={{ borderRadius: 2 }}>
+          {deleteError}
         </Alert>
       )}
 
@@ -169,30 +218,30 @@ const Settings: React.FC = () => {
           </Typography>
 
           <TextField
-  label="PIN de 4 dígitos"
-  variant="outlined"
-  size="small"
-  type={showPin ? 'text' : 'password'}
-  value={pinCode}
-  onChange={(e) => setPinCode(e.target.value.slice(0, 4))}
-  slotProps={{
-    htmlInput: {
-      maxLength: 4,
-      inputMode: 'numeric',
-      pattern: '[0-9]*',
-    },
-    input: {
-      endAdornment: (
-        <InputAdornment position="end">
-          <IconButton onClick={() => setShowPin(!showPin)} edge="end">
-            {showPin ? <VisibilityOff /> : <Visibility />}
-          </IconButton>
-        </InputAdornment>
-      ),
-    },
-  }}
-  sx={{ maxWidth: 220 }}
-/>
+            label="PIN de 4 dígitos"
+            variant="outlined"
+            size="small"
+            type={showPin ? 'text' : 'password'}
+            value={pinCode}
+            onChange={(e) => setPinCode(e.target.value.slice(0, 4))}
+            slotProps={{
+              htmlInput: {
+                maxLength: 4,
+                inputMode: 'numeric',
+                pattern: '[0-9]*',
+              },
+              input: {
+                endAdornment: (
+                  <InputAdornment position="end">
+                    <IconButton onClick={() => setShowPin(!showPin)} edge="end">
+                      {showPin ? <VisibilityOff /> : <Visibility />}
+                    </IconButton>
+                  </InputAdornment>
+                ),
+              },
+            }}
+            sx={{ maxWidth: 220 }}
+          />
 
           <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', pt: 1 }}>
             <Button
@@ -267,10 +316,43 @@ const Settings: React.FC = () => {
         </Stack>
       </Paper>
 
+      {/* Privacidad, Términos Legales & Gestión de Datos */}
+      <Paper sx={{ p: 3, borderRadius: 3, display: 'flex', flexDirection: 'column', gap: 2 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+          <GavelIcon color="primary" />
+          <Typography variant="h6" sx={{ fontWeight: 700 }}>
+            Privacidad & Legal
+          </Typography>
+        </Box>
+
+        <Divider />
+
+        <Typography variant="body2" color="text.secondary">
+          Consulta nuestras políticas de tratamiento de datos o ejerce tus derechos de eliminación de la información almacenada en cumplimiento con las normativas internacionales de protección de datos.
+        </Typography>
+
+        <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', pt: 1 }}>
+          <Button
+            variant="outlined"
+            onClick={() => navigate('/privacy-policy')}
+            sx={{ fontWeight: 600, borderRadius: 2 }}
+          >
+            Política de Privacidad
+          </Button>
+          <Button
+            variant="outlined"
+            onClick={() => navigate('/terms-of-service')}
+            sx={{ fontWeight: 600, borderRadius: 2 }}
+          >
+            Términos y Condiciones
+          </Button>
+        </Box>
+      </Paper>
+
       {/* Cerrar Sesión */}
-      <Paper sx={{ p: 3, borderRadius: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderColor: 'error.main' }}>
+      <Paper sx={{ p: 3, borderRadius: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <Box>
-          <Typography variant="subtitle1" sx={{ fontWeight: 700, color: 'error.main' }}>
+          <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
             Cerrar Sesión
           </Typography>
           <Typography variant="body2" color="text.secondary">
@@ -279,13 +361,40 @@ const Settings: React.FC = () => {
         </Box>
         <Button
           variant="outlined"
-          color="error"
+          color="inherit"
           startIcon={<LogoutIcon />}
           onClick={() => signOut()}
           sx={{ fontWeight: 700, borderRadius: 2 }}
         >
           Salir
         </Button>
+      </Paper>
+
+      {/* Zona Peligrosa: Eliminar Cuenta */}
+      <Paper sx={{ p: 3, borderRadius: 3, display: 'flex', flexDirection: 'column', gap: 2, borderColor: 'error.main', borderWidth: 1, borderStyle: 'solid' }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+          <WarningIcon color="error" />
+          <Typography variant="subtitle1" sx={{ fontWeight: 700, color: 'error.main' }}>
+            Zona de Peligro: Eliminar Cuenta
+          </Typography>
+        </Box>
+
+        <Typography variant="body2" color="text.secondary">
+          Esta acción eliminará de forma permanente e irreversible todas tus transacciones, categorías, presupuestos e historial. Cumple con la normativa del Derecho al Olvido (GDPR).
+        </Typography>
+
+        <Box sx={{ display: 'flex', justifyContent: 'flex-start' }}>
+          <Button
+            variant="contained"
+            color="error"
+            startIcon={deleting ? <CircularProgress size={20} color="inherit" /> : <DeleteIcon />}
+            onClick={handleDeleteAccount}
+            disabled={deleting}
+            sx={{ fontWeight: 700, borderRadius: 2 }}
+          >
+            {deleting ? 'Eliminando datos...' : 'Eliminar mi cuenta permanentemente'}
+          </Button>
+        </Box>
       </Paper>
     </Box>
   );

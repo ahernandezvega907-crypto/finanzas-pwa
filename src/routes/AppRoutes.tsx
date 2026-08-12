@@ -15,6 +15,8 @@ const Budgets = lazy(() => import('../pages/Budgets'));
 const Reports = lazy(() => import('../pages/Reports'));
 const Settings = lazy(() => import('../pages/Settings'));
 const AiGuru = lazy(() => import('../pages/AiGuru'));
+const PrivacyPolicy = lazy(() => import('../pages/PrivacyPolicy'));
+const TermsOfService = lazy(() => import('../pages/TermsOfService'));
 const NotFound = lazy(() => import('../pages/NotFound'));
 
 const LoadingFallback = () => (
@@ -40,6 +42,10 @@ export const AppRoutes: React.FC = () => {
         {/* Rutas Públicas / Autenticación */}
         <Route path="/login" element={!user ? <Login /> : <Navigate to="/" replace />} />
         <Route path="/pin" element={<PinLock />} />
+
+        {/* Rutas Legales Públicas (Accesibles sin iniciar sesión) */}
+        <Route path="/privacy-policy" element={<PrivacyPolicy />} />
+        <Route path="/terms-of-service" element={<TermsOfService />} />
 
         {/* Rutas Protegidas dentro del Layout Unificado */}
         <Route

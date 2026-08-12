@@ -38,19 +38,37 @@ export const categoryService = {
     const { data, error } = await supabase
       .from('categories')
       .insert([
-        { 
+        {
           name: category.name,
           profile_id: user.id,
-          icon: category.icon || 'category', // ◄ Agregamos el icono por defecto para cumplir la restricción
-          color: '#3B82F6', 
-          type: 'expense'   
-        }
+          icon: category.icon || 'category',
+          color: category.color || '#3B82F6',
+          type: category.type || 'expense',
+        },
       ])
       .select()
       .single();
 
     if (error) {
       throw new Error(`Error al crear la categoría: ${error.message}`);
+    }
+
+    return data as Category;
+  },
+
+  async updateCategory(
+    id: string,
+    updates: Partial<Category>
+  ): Promise<Category> {
+    const { data, error } = await supabase
+      .from('categories')
+      .update(updates)
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) {
+      throw new Error(`Error al actualizar la categoría: ${error.message}`);
     }
 
     return data as Category;

@@ -1,4 +1,5 @@
 import React from 'react';
+import { ConsentModal } from '../features/auth/components/ConsentModal';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { cn } from '../utils/cn';
 
@@ -73,6 +74,9 @@ export const AppLayout: React.FC = () => {
   return (
     <div className="flex h-screen w-full overflow-hidden bg-background text-text-main">
       
+      {/* Modal de consentimiento global */}
+      <ConsentModal />
+
       {/* 🖥️ SIDEBAR ESTRUCTURAL (Desktop Viewport) */}
       <aside 
         className="hidden md:flex flex-col w-64 border-r border-border bg-surface px-4 py-6 shrink-0"
