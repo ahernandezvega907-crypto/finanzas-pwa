@@ -133,3 +133,5 @@ export const PinLock: React.FC<PinLockProps> = ({ onSuccess }) => {
     </div>
   );
 };
+
+export default PinLock;
