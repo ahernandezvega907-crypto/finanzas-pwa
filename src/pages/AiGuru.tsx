@@ -9,6 +9,7 @@ import {
   CircularProgress,
   Chip,
   Divider,
+  Alert,
 } from '@mui/material';
 import SendIcon from '@mui/icons-material/Send';
 import SmartToyIcon from '@mui/icons-material/SmartToy';
@@ -17,6 +18,7 @@ import LightbulbIcon from '@mui/icons-material/Lightbulb';
 
 import { useTransactions } from '../features/transactions/hooks/useTransactions';
 import { useCategories } from '../features/categories/hooks/useCategories';
+import { supabase } from '../lib/supabase';
 
 interface Message {
   id: string;
@@ -32,6 +34,7 @@ export const AiGuru: React.FC = () => {
 
   const [input, setInput] = useState('');
   const [isThinking, setIsThinking] = useState(false);
+  const [apiError, setApiError] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([
     {
       id: '1',
@@ -51,7 +54,7 @@ export const AiGuru: React.FC = () => {
     scrollToBottom();
   }, [messages, isThinking]);
 
-  // Resumen del estado financiero para las respuestas inteligentes
+  // Resumen del estado financiero: se envía como contexto a la Edge Function
   const financialSummary = useMemo(() => {
     let income = 0;
     let expense = 0;
@@ -81,41 +84,35 @@ export const AiGuru: React.FC = () => {
       }
     });
 
-    return { income, expense, balance, highestExpenseCat, maxExpense };
+    return {
+      totalIncome: income,
+      totalExpenses: expense,
+      balance,
+      highestExpenseCat,
+      maxExpense,
+    };
   }, [transactions, categories]);
 
-  const generateAiResponse = (userQuery: string): string => {
-    const q = userQuery.toLowerCase();
-    const { income, expense, balance, highestExpenseCat, maxExpense } = financialSummary;
+  const askGuru = async (userQuery: string): Promise<string> => {
+    const { data, error } = await supabase.functions.invoke('gemini-advice', {
+      body: {
+        userPrompt: userQuery,
+        context: financialSummary,
+      },
+    });
 
-    const formatCurr = (num: number) => `₡${num.toLocaleString('es-CR')}`;
-
-    if (q.includes('resumen') || q.includes('estado') || q.includes('balance') || q.includes('cómo voy')) {
-      return `📊 **Resumen Financiero:**\n- Ingresos totales: ${formatCurr(income)}\n- Gastos totales: ${formatCurr(expense)}\n- Balance actual: **${formatCurr(balance)}**\n\n${
-        balance >= 0
-          ? '¡Vas por buen camino! Mantienes un superávit positivo.'
-          : '⚠️ Atención: Tus gastos superan tus ingresos actuales. Te sugiero revisar tus presupuestos.'
-      }`;
+    if (error) {
+      throw new Error(error.message || 'No se pudo contactar al Gurú IA.');
     }
 
-    if (q.includes('ahorro') || q.includes('ahorrar') || q.includes('consejo') || q.includes('recomiendas')) {
-      if (highestExpenseCat !== 'Ninguna') {
-        return `💡 **Consejo de Ahorro:**\nTu categoría con mayor gasto es **${highestExpenseCat}** con un total de **${formatCurr(maxExpense)}**.\n\nTe recomiendo intentar reducir un 10% a 15% en esta categoría durante el próximo mes. Podrías ahorrar aproximadamente **${formatCurr(Math.round(maxExpense * 0.12))}**.`;
-      }
-      return '💡 **Consejo de Ahorro:**\nIntenta aplicar la regla 50/30/20: destina el 50% de tus ingresos a necesidades primarias, el 30% a gustos personales y el 20% directamente al ahorro.';
+    if (data?.error) {
+      throw new Error(data.error);
     }
 
-    if (q.includes('gasto') || q.includes('mayor gasto') || q.includes('categoría')) {
-      if (highestExpenseCat !== 'Ninguna') {
-        return `💸 Tu categoría con mayor gasto registrado es **${highestExpenseCat}**, sumando **${formatCurr(maxExpense)}**.`;
-      }
-      return 'Aún no registras gastos suficientes para determinar tu mayor categoría de consumo.';
-    }
-
-    return `Entiendo tu consulta sobre "${userQuery}". Basado en tu registro actual, tienes un balance de ${formatCurr(balance)}. Te sugiero establecer límites de gasto en tus categorías principales para optimizar tus presupuestos.`;
+    return data?.text || 'No se obtuvo una respuesta del Gurú IA.';
   };
 
-  const handleSend = (e?: React.FormEvent) => {
+  const handleSend = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     if (!input.trim() || isThinking) return;
 
@@ -130,9 +127,10 @@ export const AiGuru: React.FC = () => {
     const queryText = input;
     setInput('');
     setIsThinking(true);
+    setApiError(null);
 
-    setTimeout(() => {
-      const aiReplyText = generateAiResponse(queryText);
+    try {
+      const aiReplyText = await askGuru(queryText);
       const aiMsg: Message = {
         id: crypto.randomUUID(),
         sender: 'ai',
@@ -140,8 +138,11 @@ export const AiGuru: React.FC = () => {
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       };
       setMessages((prev) => [...prev, aiMsg]);
+    } catch (err: any) {
+      setApiError(err.message || 'Ocurrió un error al consultar al Gurú IA.');
+    } finally {
       setIsThinking(false);
-    }, 1000);
+    }
   };
 
   const handlePromptClick = (promptText: string) => {
@@ -154,7 +155,6 @@ export const AiGuru: React.FC = () => {
         AiGuru - Asistente Financiero
       </Typography>
 
-      {/* Sugerencias Rápidas */}
       <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mb: 2 }}>
         <Chip
           icon={<LightbulbIcon />}
@@ -182,7 +182,6 @@ export const AiGuru: React.FC = () => {
         />
       </Box>
 
-      {/* Ventana del Chat */}
       <Paper
         sx={{
           flex: 1,
@@ -231,7 +230,7 @@ export const AiGuru: React.FC = () => {
                     boxShadow: 1,
                   }}
                 >
-                  <Typography variant="body1" sx={{ whitespace: 'pre-line' }}>
+                  <Typography variant="body1" sx={{ whiteSpace: 'pre-line' }}>
                     {msg.text}
                   </Typography>
                 </Paper>
@@ -261,21 +260,38 @@ export const AiGuru: React.FC = () => {
         <div ref={chatEndRef} />
       </Paper>
 
-      <Divider sx={{ my: 2 }} />
+      {apiError && (
+        <Alert severity="error" sx={{ mt: 1.5 }} onClose={() => setApiError(null)}>
+          {apiError}
+        </Alert>
+      )}
 
-      {/* Input para enviar mensajes */}
-      <Box component="form" onSubmit={handleSend} sx={{ display: 'flex', gap: 1 }}>
-        <TextField
-          fullWidth
-          placeholder="Hazle una pregunta a AiGuru..."
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          size="medium"
-          sx={{ '& .MuiOutlinedInput-root': { borderRadius: 3 } }}
-        />
-        <IconButton type="submit" color="primary" disabled={!input.trim() || isThinking} sx={{ p: 1.5 }}>
-          <SendIcon />
-        </IconButton>
+      <Divider sx={{ my: 1.5 }} />
+
+      <Box component="form" onSubmit={handleSend} sx={{ display: 'flex', gap: 1, flexDirection: 'column' }}>
+        <Box sx={{ display: 'flex', gap: 1 }}>
+          <TextField
+            fullWidth
+            placeholder="Hazle una pregunta a AiGuru..."
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            size="medium"
+            disabled={isThinking}
+            sx={{ '& .MuiOutlinedInput-root': { borderRadius: 3 } }}
+          />
+          <IconButton type="submit" color="primary" disabled={!input.trim() || isThinking} sx={{ p: 1.5 }}>
+            <SendIcon />
+          </IconButton>
+        </Box>
+
+        <Typography
+          variant="caption"
+          color="text.secondary"
+          align="center"
+          sx={{ display: 'block', fontSize: '0.72rem', opacity: 0.85, mt: 0.5 }}
+        >
+          🤖 AiGuru es un asistente basado en IA y sus respuestas no constituyen asesoramiento financiero certificado. Verifica la información importante.
+        </Typography>
       </Box>
     </Box>
   );
