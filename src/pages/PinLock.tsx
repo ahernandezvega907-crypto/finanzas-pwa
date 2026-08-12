@@ -1,38 +1,23 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import {
-  Box,
-  Typography,
-  Paper,
-  Button,
-  IconButton,
-  Avatar,
-  Alert,
-} from '@mui/material';
-import {
-  LockOutlined as LockIcon,
-  BackspaceOutlined as BackspaceIcon,
-  LogoutOutlined as LogoutIcon,
-} from '@mui/icons-material';
 import { useAuth } from '../context/AuthContext';
+import { Lock, LogOut } from 'lucide-react';
 
 interface PinLockProps {
   onSuccess?: () => void;
-  savedPin?: string;
 }
 
-const PinLock: React.FC<PinLockProps> = ({ onSuccess, savedPin }) => {
-  const [pin, setPin] = useState<string>('');
-  const [error, setError] = useState<string | null>(null);
+export const PinLock: React.FC<PinLockProps> = ({ onSuccess }) => {
+  const [pin, setPin] = useState('');
+  const [error, setError] = useState('');
+  const { setIsPinLocked, signOut, user } = useAuth();
   const navigate = useNavigate();
-  const { setIsPinLocked, signOut } = useAuth();
 
-  const handleKeyPress = (num: string) => {
+  const handleNumberClick = (num: string) => {
     if (pin.length < 4) {
       const newPin = pin + num;
       setPin(newPin);
-      setError(null);
-
+      setError('');
       if (newPin.length === 4) {
         verifyPin(newPin);
       }
@@ -40,13 +25,23 @@ const PinLock: React.FC<PinLockProps> = ({ onSuccess, savedPin }) => {
   };
 
   const handleDelete = () => {
-    setPin((prev) => prev.slice(0, -1));
-    setError(null);
+    setPin(prev => prev.slice(0, -1));
+    setError('');
   };
 
   const verifyPin = (enteredPin: string) => {
-    // Busca el PIN en localStorage, cae en el prop savedPin, o por defecto usa '1234'
-    const validPin = localStorage.getItem('app_pin_code') || savedPin || '1234';
+    if (!user?.id) {
+      setError('No se pudo verificar la sesión. Inicia sesión de nuevo.');
+      return;
+    }
+
+    const validPin = localStorage.getItem(`app_pin_code_${user.id}`);
+
+    if (!validPin) {
+      setError('No tienes un PIN configurado. Ve a Ajustes para crear uno.');
+      setPin('');
+      return;
+    }
 
     if (enteredPin === validPin) {
       setIsPinLocked(false);
@@ -62,140 +57,79 @@ const PinLock: React.FC<PinLockProps> = ({ onSuccess, savedPin }) => {
   };
 
   const handleLogout = async () => {
-    await signOut();
-    navigate('/login', { replace: true });
+    try {
+      await signOut();
+      setIsPinLocked(false);
+      navigate('/login', { replace: true });
+    } catch (err) {
+      console.error('Error al cerrar sesión:', err);
+    }
   };
 
   return (
-    <Box
-      sx={{
-        minHeight: '100vh',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        bgcolor: 'background.default',
-        p: 2,
-      }}
-    >
-      <Paper
-        elevation={4}
-        sx={{
-          p: 4,
-          borderRadius: 4,
-          maxWidth: 360,
-          width: '100%',
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          gap: 3,
-        }}
-      >
-        <Avatar sx={{ bgcolor: 'primary.main', width: 56, height: 56 }}>
-          <LockIcon fontSize="large" />
-        </Avatar>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-background p-4">
+      <div className="w-full max-w-sm flex flex-col items-center">
+        <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mb-6 text-primary">
+          <Lock className="w-8 h-8" />
+        </div>
 
-        <Box sx={{ textAlign: 'center' }}>
-          <Typography variant="h5" sx={{ fontWeight: 700, mb: 0.5 }}>
-            MoneyFlow
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            Ingresa tu PIN de 4 dígitos para continuar
-          </Typography>
-        </Box>
+        <h1 className="text-2xl font-bold text-text-main mb-2">Aplicación Bloqueada</h1>
+        <p className="text-sm text-text-muted mb-8 text-center">
+          Ingresa tu PIN de 4 dígitos para acceder a tus datos financieros.
+        </p>
 
-        {/* Indicadores de Dígitos */}
-        <Box sx={{ display: 'flex', gap: 2, my: 1 }}>
-          {[0, 1, 2, 3].map((index) => (
-            <Box
+        {/* Indicadores de PIN */}
+        <div className="flex gap-4 mb-8">
+          {[0, 1, 2, 3].map(index => (
+            <div
               key={index}
-              sx={{
-                width: 16,
-                height: 16,
-                borderRadius: '50%',
-                bgcolor: pin.length > index ? 'primary.main' : 'action.disabledBackground',
-                border: '2px solid',
-                borderColor: pin.length > index ? 'primary.main' : 'divider',
-                transition: 'all 0.2s ease',
-              }}
+              className={`w-4 h-4 rounded-full border-2 transition-all duration-200 ${
+                pin.length > index
+                  ? 'bg-primary border-primary scale-110'
+                  : 'border-border bg-transparent'
+              }`}
             />
           ))}
-        </Box>
+        </div>
 
         {error && (
-          <Alert severity="error" sx={{ width: '100%', py: 0.5, borderRadius: 2 }}>
+          <p className="text-sm text-red-500 mb-6 font-medium animate-shake text-center">
             {error}
-          </Alert>
+          </p>
         )}
 
-        {/* Teclado Numérico con CSS Grid */}
-        <Box
-          sx={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(3, 1fr)',
-            gap: 2,
-            maxWidth: 280,
-            width: '100%',
-          }}
-        >
-          {['1', '2', '3', '4', '5', '6', '7', '8', '9'].map((num) => (
-            <Button
+        {/* Teclado numérico */}
+        <div className="grid grid-cols-3 gap-4 w-full max-w-[280px] mb-8">
+          {['1', '2', '3', '4', '5', '6', '7', '8', '9'].map(num => (
+            <button
               key={num}
-              fullWidth
-              variant="outlined"
-              onClick={() => handleKeyPress(num)}
-              sx={{
-                height: 60,
-                borderRadius: 3,
-                fontSize: '1.5rem',
-                fontWeight: 600,
-                borderColor: 'divider',
-              }}
+              onClick={() => handleNumberClick(num)}
+              className="w-16 h-16 rounded-full bg-surface border border-border text-2xl font-semibold text-text-main flex items-center justify-center hover:bg-surface-hover active:scale-95 transition-all mx-auto shadow-sm"
             >
               {num}
-            </Button>
+            </button>
           ))}
-          <Box /> {/* Espacio vacío alineado a la izquierda */}
-          <Button
-            fullWidth
-            variant="outlined"
-            onClick={() => handleKeyPress('0')}
-            sx={{
-              height: 60,
-              borderRadius: 3,
-              fontSize: '1.5rem',
-              fontWeight: 600,
-              borderColor: 'divider',
-            }}
+          <button
+            onClick={handleLogout}
+            title="Cerrar sesión"
+            className="w-16 h-16 rounded-full bg-surface border border-border text-text-muted flex items-center justify-center hover:bg-red-500/10 hover:text-red-500 active:scale-95 transition-all mx-auto"
+          >
+            <LogOut className="w-5 h-5" />
+          </button>
+          <button
+            onClick={() => handleNumberClick('0')}
+            className="w-16 h-16 rounded-full bg-surface border border-border text-2xl font-semibold text-text-main flex items-center justify-center hover:bg-surface-hover active:scale-95 transition-all mx-auto shadow-sm"
           >
             0
-          </Button>
-          <IconButton
+          </button>
+          <button
             onClick={handleDelete}
-            sx={{
-              width: '100%',
-              height: 60,
-              borderRadius: 3,
-              border: '1px solid',
-              borderColor: 'divider',
-            }}
+            className="w-16 h-16 rounded-full bg-surface border border-border text-text-muted font-medium flex items-center justify-center hover:bg-surface-hover active:scale-95 transition-all mx-auto"
           >
-            <BackspaceIcon />
-          </IconButton>
-        </Box>
-
-        {/* Botón de salida/cierre de sesión si se olvida el PIN */}
-        <Button
-          startIcon={<LogoutIcon />}
-          color="error"
-          size="small"
-          onClick={handleLogout}
-          sx={{ textTransform: 'none', mt: 1 }}
-        >
-          Cerrar sesión
-        </Button>
-      </Paper>
-    </Box>
+            Borrar
+          </button>
+        </div>
+      </div>
+    </div>
   );
 };
-
-export default PinLock;

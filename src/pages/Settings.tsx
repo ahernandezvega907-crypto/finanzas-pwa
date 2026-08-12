@@ -39,6 +39,9 @@ const Settings: React.FC = () => {
   const [darkMode, setDarkMode] = useState(true);
   const [savedSuccess, setSavedSuccess] = useState<string | null>(null);
 
+  // Clave dinámica de almacenamiento para aislar el PIN por usuario
+  const pinStorageKey = user?.id ? `app_pin_code_${user.id}` : null;
+
   // Estados para la gestión del PIN
   const [pinCode, setPinCode] = useState('');
   const [hasExistingPin, setHasExistingPin] = useState(false);
@@ -50,12 +53,12 @@ const Settings: React.FC = () => {
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
   useEffect(() => {
-    const existing = localStorage.getItem('app_pin_code');
+    if (!pinStorageKey) return;
+    const existing = localStorage.getItem(pinStorageKey);
     if (existing) {
       setHasExistingPin(true);
-      setPinCode(existing);
     }
-  }, []);
+  }, [pinStorageKey]);
 
   const handleSaveProfile = (e: React.FormEvent) => {
     e.preventDefault();
@@ -72,14 +75,20 @@ const Settings: React.FC = () => {
       return;
     }
 
-    localStorage.setItem('app_pin_code', pinCode);
+    if (!pinStorageKey) {
+      setPinError('No se pudo verificar tu sesión. Intenta iniciar sesión de nuevo.');
+      return;
+    }
+
+    localStorage.setItem(pinStorageKey, pinCode);
     setHasExistingPin(true);
     setSavedSuccess('PIN de seguridad guardado correctamente.');
     setTimeout(() => setSavedSuccess(null), 3000);
   };
 
   const handleRemovePin = () => {
-    localStorage.removeItem('app_pin_code');
+    if (!pinStorageKey) return;
+    localStorage.removeItem(pinStorageKey);
     setPinCode('');
     setHasExistingPin(false);
     setSavedSuccess('PIN eliminado. La aplicación ya no solicitará código.');
@@ -109,7 +118,9 @@ const Settings: React.FC = () => {
         await supabase.from('categories').delete().eq('profile_id', user.id);
 
         // 2. Limpiar datos de seguridad locales
-        localStorage.removeItem('app_pin_code');
+        if (pinStorageKey) {
+          localStorage.removeItem(pinStorageKey);
+        }
 
         // 3. Cerrar sesión y redireccionar
         await signOut();
