@@ -34,17 +34,6 @@ if (typeof window !== 'undefined') {
   });
 }
 
-const DEFAULT_CATEGORIES = [
-  { id: '11111111-1111-4111-8111-111111111111', name: 'Alimentación', type: 'expense' },
-  { id: '22222222-2222-4222-8222-222222222222', name: 'Vivienda', type: 'expense' },
-  { id: '33333333-3333-4333-8333-333333333333', name: 'Transporte', type: 'expense' },
-  { id: '44444444-4444-4444-8444-444444444444', name: 'Entretenimiento', type: 'expense' },
-  { id: '55555555-5555-4555-8555-555555555555', name: 'Salud', type: 'expense' },
-  { id: '66666666-6666-4666-8666-666666666666', name: 'Otros', type: 'expense' },
-  { id: '77777777-7777-4777-8777-777777777777', name: 'Salario', type: 'income' },
-  { id: '88888888-8888-4888-8888-888888888888', name: 'Ventas / Negocio', type: 'income' },
-];
-
 export const Transactions: React.FC = () => {
   const { transactions, loading, error, createTransaction, updateTransaction, deleteTransaction } = useTransactions();
   const { categoriesQuery } = useCategories();
@@ -77,10 +66,7 @@ export const Transactions: React.FC = () => {
   };
 
   const combinedCategories = useMemo(() => {
-    if (loadedCategories && loadedCategories.length > 0) {
-      return loadedCategories;
-    }
-    return DEFAULT_CATEGORIES;
+    return loadedCategories || [];
   }, [loadedCategories]);
 
   const filteredCategories = useMemo(() => {
@@ -288,6 +274,12 @@ export const Transactions: React.FC = () => {
                 onChange={(e) => setCategoryId(e.target.value)}
                 required
                 fullWidth
+                disabled={filteredCategories.length === 0}
+                helperText={
+                  filteredCategories.length === 0
+                    ? 'No hay categorías disponibles. Crea una en Categorías.'
+                    : ''
+                }
               >
                 {filteredCategories.map((cat: any) => (
                   <MenuItem key={cat.id} value={cat.id}>
@@ -321,7 +313,7 @@ export const Transactions: React.FC = () => {
             <Button
               type="submit"
               variant="contained"
-              disabled={submitting || !amount || !categoryId}
+              disabled={submitting || !amount || !categoryId || filteredCategories.length === 0}
             >
               {submitting ? <CircularProgress size={24} /> : 'Guardar'}
             </Button>
