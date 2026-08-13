@@ -99,10 +99,10 @@ const Settings: React.FC = () => {
     setIsPinLocked(true);
   };
 
-  // Función para eliminar cuenta y limpiar Supabase (Derecho al Olvido)
+  // Función para eliminar cuenta y datos (derecho de cancelación - Ley 8968, Costa Rica)
   const handleDeleteAccount = async () => {
     const confirmed = window.confirm(
-      '⚠️ ¿Estás completamente seguro de borrar tu cuenta?\n\nEsta acción eliminará de forma PERMANENTE e IRREVERSIBLE todos tus gastos, ingresos, presupuestos y configuraciones almacenadas. No podrás recuperar esta información.'
+      '⚠️ ¿Estás completamente seguro de borrar tu cuenta?\n\nEsta acción eliminará de forma PERMANENTE e IRREVERSIBLE todos tus gastos, ingresos, presupuestos, configuraciones y tu cuenta de acceso (correo/contraseña). No podrás recuperar esta información.'
     );
 
     if (!confirmed) return;
@@ -111,24 +111,43 @@ const Settings: React.FC = () => {
     setDeleteError(null);
 
     try {
-      if (user) {
-        // 1. Borrar registros asociados al perfil del usuario en Supabase (usando profile_id)
-        await supabase.from('transactions').delete().eq('profile_id', user.id);
-        await supabase.from('budgets').delete().eq('profile_id', user.id);
-        await supabase.from('categories').delete().eq('profile_id', user.id);
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
 
-        // 2. Limpiar datos de seguridad locales
-        if (pinStorageKey) {
-          localStorage.removeItem(pinStorageKey);
-        }
-
-        // 3. Cerrar sesión y redireccionar
-        await signOut();
-        navigate('/login', { replace: true });
+      if (!session) {
+        throw new Error('Tu sesión expiró. Inicia sesión de nuevo.');
       }
+
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
+      const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
+
+      const response = await fetch(`${supabaseUrl}/functions/v1/delete-account`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session.access_token}`,
+          apikey: supabaseAnonKey,
+        },
+      });
+
+      const responseBody = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        throw new Error(responseBody?.error || `Error del servidor (${response.status}).`);
+      }
+
+      if (pinStorageKey) {
+        localStorage.removeItem(pinStorageKey);
+      }
+
+      await signOut();
+      navigate('/login', { replace: true });
     } catch (err: any) {
       console.error('Error al eliminar la cuenta:', err);
-      setDeleteError('Ocurrió un problema al intentar eliminar tus datos. Por favor, intenta de nuevo.');
+      setDeleteError(
+        err.message || 'Ocurrió un problema al intentar eliminar tu cuenta. Por favor, intenta de nuevo.'
+      );
     } finally {
       setDeleting(false);
     }
@@ -382,7 +401,18 @@ const Settings: React.FC = () => {
       </Paper>
 
       {/* Zona Peligrosa: Eliminar Cuenta */}
-      <Paper sx={{ p: 3, borderRadius: 3, display: 'flex', flexDirection: 'column', gap: 2, borderColor: 'error.main', borderWidth: 1, borderStyle: 'solid' }}>
+      <Paper
+        sx={{
+          p: 3,
+          borderRadius: 3,
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 2,
+          borderColor: 'error.main',
+          borderWidth: 1,
+          borderStyle: 'solid',
+        }}
+      >
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
           <WarningIcon color="error" />
           <Typography variant="subtitle1" sx={{ fontWeight: 700, color: 'error.main' }}>
@@ -391,7 +421,7 @@ const Settings: React.FC = () => {
         </Box>
 
         <Typography variant="body2" color="text.secondary">
-          Esta acción eliminará de forma permanente e irreversible todas tus transacciones, categorías, presupuestos e historial. Cumple con la normativa del Derecho al Olvido (GDPR).
+          Esta acción eliminará de forma permanente e irreversible todas tus transacciones, categorías, presupuestos, historial de uso del Gurú IA, y tu cuenta de acceso completa, conforme a tu derecho de cancelación bajo la Ley 8968.
         </Typography>
 
         <Box sx={{ display: 'flex', justifyContent: 'flex-start' }}>
@@ -403,7 +433,7 @@ const Settings: React.FC = () => {
             disabled={deleting}
             sx={{ fontWeight: 700, borderRadius: 2 }}
           >
-            {deleting ? 'Eliminando datos...' : 'Eliminar mi cuenta permanentemente'}
+            {deleting ? 'Eliminando cuenta...' : 'Eliminar mi cuenta permanentemente'}
           </Button>
         </Box>
       </Paper>
