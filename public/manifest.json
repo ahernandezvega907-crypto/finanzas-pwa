@@ -3,13 +3,13 @@
   "name": "MoneyFlow - Control Financiero Personal",
   "icons": [
     {
-      "src": "/icons/icon-192x192.png",
+      "src": "/pwa-192.png",
       "type": "image/png",
       "sizes": "192x192",
       "purpose": "any"
     },
     {
-      "src": "/icons/icon-512x512.png",
+      "src": "/pwa-192.png",
       "type": "image/png",
       "sizes": "512x512",
       "purpose": "any maskable"
