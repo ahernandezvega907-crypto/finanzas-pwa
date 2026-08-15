@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
+import { getUserFriendlyError } from '../lib/getUserFriendlyError';
 import {
   Box,
   Typography,
@@ -156,8 +157,8 @@ export const AiGuru: React.FC = () => {
       };
       setMessages((prev) => [...prev, aiMsg]);
     } catch (err: any) {
-      setApiError(err.message || 'Ocurrió un error al consultar al Gurú IA.');
-    } finally {
+  setApiError(getUserFriendlyError(err));
+} finally {
       setIsThinking(false);
     }
   };

@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { getUserFriendlyError } from '../lib/getUserFriendlyError';
 import {
   Box,
   Typography,
@@ -127,8 +128,8 @@ export const Transactions: React.FC = () => {
       }
       handleClose();
     } catch (err: any) {
-      setActionError(err.message || 'Ocurrió un error al guardar el movimiento.');
-    } finally {
+  setActionError(getUserFriendlyError(err));
+} finally {
       setSubmitting(false);
     }
   };
@@ -139,8 +140,8 @@ export const Transactions: React.FC = () => {
         await deleteTransaction(id);
         showToast('Movimiento eliminado', 'info');
       } catch (err: any) {
-        showToast(err.message || 'Error al eliminar el movimiento', 'error');
-      }
+  showToast(getUserFriendlyError(err), 'error');
+}
     }
   };
 
@@ -168,10 +169,10 @@ export const Transactions: React.FC = () => {
 
       {/* Solo se muestra la alerta si hay error Y el navegador está ONLINE */}
       {error && navigator.onLine && (
-        <Alert severity="error" sx={{ mb: 2 }}>
-          {typeof error === 'string' ? error : (error as any).message || 'Error al cargar transacciones'}
-        </Alert>
-      )}
+  <Alert severity="error" sx={{ mb: 2 }}>
+    {getUserFriendlyError(error)}
+  </Alert>
+)}
 
       {loading ? (
         <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
