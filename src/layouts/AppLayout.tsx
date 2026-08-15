@@ -29,6 +29,15 @@ const navigationItems: NavigationItem[] = [
     ),
   },
   {
+    name: 'Categorías',
+    path: '/categories',
+    icon: (
+      <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+      </svg>
+    ),
+  },
+  {
     name: 'Presupuestos',
     path: '/budgets',
     icon: (
@@ -71,6 +80,13 @@ export const AppLayout: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
 
+  const isRouteActive = (itemPath: string) => {
+    if (itemPath === '/dashboard') {
+      return location.pathname === '/' || location.pathname === '/dashboard';
+    }
+    return location.pathname.startsWith(itemPath);
+  };
+
   return (
     <div className="flex h-screen w-full overflow-hidden bg-background text-text-main">
       
@@ -89,7 +105,7 @@ export const AppLayout: React.FC = () => {
 
         <nav className="flex-1 space-y-1.5" aria-label="Enlaces del sistema">
           {navigationItems.map((item) => {
-            const isActive = location.pathname.startsWith(item.path);
+            const isActive = isRouteActive(item.path);
             return (
               <button
                 key={item.path}
@@ -154,7 +170,7 @@ export const AppLayout: React.FC = () => {
         aria-label="Navegación Móvil Inferior"
       >
         {navigationItems.map((item) => {
-          const isActive = location.pathname.startsWith(item.path);
+          const isActive = isRouteActive(item.path);
           return (
             <button
               key={item.path}

@@ -24,8 +24,8 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
-  // 2. Redirigir a la pantalla de PIN si la app está bloqueada
-  if (isPinLocked) {
+  // 2. Redirigir a la pantalla de PIN solo si está bloqueado Y no se encuentra ya en /pin
+  if (isPinLocked && location.pathname !== '/pin') {
     return <Navigate to="/pin" state={{ from: location }} replace />;
   }
 
