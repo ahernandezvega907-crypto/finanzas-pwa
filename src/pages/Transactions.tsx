@@ -190,45 +190,45 @@ export const Transactions: React.FC = () => {
 
               return (
                 <ListItem
-                  key={tx.id || index}
-                  divider={index !== transactions.length - 1}
-                  secondaryAction={
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <Typography
-                        variant="subtitle1"
-                        sx={{ color: isExpense ? 'error.main' : 'success.main', fontWeight: 'bold', mr: 1 }}
-                      >
-                        {isExpense ? '-' : '+'}₡{tx.amount?.toLocaleString('es-CR')}
-                      </Typography>
-                      <IconButton edge="end" onClick={() => handleOpen(tx)}>
-                        <EditIcon fontSize="small" />
-                      </IconButton>
-                      <IconButton edge="end" color="error" onClick={() => handleDelete(tx.id)}>
-                        <DeleteIcon fontSize="small" />
-                      </IconButton>
-                    </Box>
-                  }
-                >
-                  <Box sx={{ mr: 2 }}>
-                    {isExpense ? (
-                      <ArrowDownwardIcon color="error" />
-                    ) : (
-                      <ArrowUpwardIcon color="success" />
-                    )}
-                  </Box>
-                  <ListItemText
-                    primary={tx.description || catName}
-                    secondary={`${tx.date ? new Date(tx.date).toLocaleDateString('es-CR') : 'Sin fecha'} · ${catName}`}
-                    slotProps={{ primary: { sx: { fontWeight: 600 } } }}
-                  />
-                  <Chip
-                    label={isExpense ? 'Gasto' : 'Ingreso'}
-                    size="small"
-                    color={isExpense ? 'error' : 'success'}
-                    variant="outlined"
-                    sx={{ mr: 2, display: { xs: 'none', sm: 'inline-flex' } }}
-                  />
-                </ListItem>
+  key={tx.id || index}
+  divider={index !== transactions.length - 1}
+  secondaryAction={
+    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+      <Chip
+        label={isExpense ? 'Gasto' : 'Ingreso'}
+        size="small"
+        color={isExpense ? 'error' : 'success'}
+        variant="outlined"
+        sx={{ display: { xs: 'none', sm: 'inline-flex' } }}
+      />
+      <Typography
+        variant="subtitle1"
+        sx={{ color: isExpense ? 'error.main' : 'success.main', fontWeight: 'bold' }}
+      >
+        {isExpense ? '-' : '+'}₡{tx.amount?.toLocaleString('es-CR')}
+      </Typography>
+      <IconButton edge="end" onClick={() => handleOpen(tx)}>
+        <EditIcon fontSize="small" />
+      </IconButton>
+      <IconButton edge="end" color="error" onClick={() => handleDelete(tx.id)}>
+        <DeleteIcon fontSize="small" />
+      </IconButton>
+    </Box>
+  }
+>
+  <Box sx={{ mr: 2 }}>
+    {isExpense ? (
+      <ArrowDownwardIcon color="error" />
+    ) : (
+      <ArrowUpwardIcon color="success" />
+    )}
+  </Box>
+  <ListItemText
+    primary={tx.description || catName}
+    secondary={`${tx.date ? new Date(tx.date).toLocaleDateString('es-CR') : 'Sin fecha'} · ${catName}`}
+    slotProps={{ primary: { sx: { fontWeight: 600 } } }}
+  />
+</ListItem>
               );
             })}
           </List>
