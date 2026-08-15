@@ -27,7 +27,7 @@ export interface UpdateTransactionInput extends Partial<CreateTransactionInput> 
 }
 
 // ============================================================
-// PERSISTENCIA (snake_case, igual que la tabla en Supabase)
+// BASE DE DATOS (snake_case, alineado con Supabase Postgres)
 // ============================================================
 export interface TransactionRow {
   id: string;
@@ -36,6 +36,6 @@ export interface TransactionRow {
   category_id: string;
   amount: number;
   description: string | null;
-  date: string;
+  transaction_date: string;
   created_at: string;
 }

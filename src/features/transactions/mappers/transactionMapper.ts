@@ -9,7 +9,7 @@ export const transactionMapper = {
       categoryId: row.category_id,
       amount: Number(row.amount),
       description: row.description || '',
-      date: row.date,
+      date: row.transaction_date || (row as any).date || row.created_at || '',
       createdAt: row.created_at
     };
   }
