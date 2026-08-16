@@ -16,8 +16,11 @@ const Budgets = lazy(() => import('../pages/Budgets'));
 const Reports = lazy(() => import('../pages/Reports'));
 const Settings = lazy(() => import('../pages/Settings'));
 const AiGuru = lazy(() => import('../pages/AiGuru'));
+const Support = lazy(() => import('../pages/Support'));
 const Login = lazy(() => import('../pages/Login'));
 const PinLock = lazy(() => import('../pages/PinLock'));
+const PrivacyPolicy = lazy(() => import('../pages/PrivacyPolicy'));
+const TermsOfService = lazy(() => import('../pages/TermsOfService'));
 
 const LoadingFallback = () => (
   <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh' }}>
@@ -32,6 +35,8 @@ export const AppRoutes: React.FC = () => {
         {/* Rutas Públicas */}
         <Route path="/login" element={<Login />} />
         <Route path="/pin" element={<PinLock />} />
+        <Route path="/privacy-policy" element={<PrivacyPolicy />} />
+        <Route path="/terms-of-service" element={<TermsOfService />} />
 
         {/* Rutas Protegidas en un solo AppLayout */}
         <Route
@@ -48,6 +53,7 @@ export const AppRoutes: React.FC = () => {
           <Route path="/budgets" element={<Budgets />} />
           <Route path="/reports" element={<Reports />} />
           <Route path="/settings" element={<Settings />} />
+          <Route path="/soporte" element={<Support />} />
           <Route path="/ai-guru" element={<AiGuru />} />
         </Route>
 
