@@ -36,46 +36,14 @@ interface NavigationItem {
 }
 
 const navigationItems: NavigationItem[] = [
-  {
-    name: 'Dashboard',
-    path: '/dashboard',
-    icon: <DashboardIcon />,
-  },
-  {
-    name: 'Transacciones',
-    path: '/transactions',
-    icon: <ReceiptLongIcon />,
-  },
-  {
-    name: 'Categorías',
-    path: '/categories',
-    icon: <CategoryIcon />,
-  },
-  {
-    name: 'Presupuestos',
-    path: '/budgets',
-    icon: <AccountBalanceWalletIcon />,
-  },
-  {
-    name: 'Reportes',
-    path: '/reports',
-    icon: <AssessmentIcon />,
-  },
-  {
-    name: 'Gurú IA',
-    path: '/ai-guru',
-    icon: <AutoAwesomeIcon />,
-  },
-  {
-    name: 'Soporte',
-    path: '/soporte',
-    icon: <HelpOutlineIcon />,
-  },
-  {
-    name: 'Ajustes',
-    path: '/settings',
-    icon: <SettingsIcon />,
-  },
+  { name: 'Dashboard', path: '/dashboard', icon: <DashboardIcon /> },
+  { name: 'Transacciones', path: '/transactions', icon: <ReceiptLongIcon /> },
+  { name: 'Categorías', path: '/categories', icon: <CategoryIcon /> },
+  { name: 'Presupuestos', path: '/budgets', icon: <AccountBalanceWalletIcon /> },
+  { name: 'Reportes', path: '/reports', icon: <AssessmentIcon /> },
+  { name: 'Gurú IA', path: '/ai-guru', icon: <AutoAwesomeIcon /> },
+  { name: 'Soporte', path: '/soporte', icon: <HelpOutlineIcon /> },
+  { name: 'Ajustes', path: '/settings', icon: <SettingsIcon /> },
 ];
 
 export const AppLayout: React.FC = () => {
@@ -106,7 +74,10 @@ export const AppLayout: React.FC = () => {
       <Divider />
       <List>
         {navigationItems.map((item) => {
-          const isSelected = location.pathname === item.path || (item.path === '/dashboard' && location.pathname === '/');
+          const isSelected =
+            location.pathname === item.path ||
+            (item.path === '/dashboard' && location.pathname === '/');
+
           return (
             <ListItem key={item.name} disablePadding>
               <ListItemButton
@@ -141,7 +112,7 @@ export const AppLayout: React.FC = () => {
   );
 
   return (
-    <Box sx={{ display: 'flex', minHeight: '100vh' }}>
+    <Box sx={{ display: 'flex', height: '100vh', overflow: 'hidden' }}>
       <CssBaseline />
       <AppBar
         position="fixed"
@@ -166,6 +137,7 @@ export const AppLayout: React.FC = () => {
           </Typography>
         </Toolbar>
       </AppBar>
+
       <Box
         component="nav"
         sx={{ width: { sm: drawerWidth }, flexShrink: { sm: 0 } }}
@@ -194,14 +166,17 @@ export const AppLayout: React.FC = () => {
           {drawerContent}
         </Drawer>
       </Box>
+
       <Box
         component="main"
         sx={{
           flexGrow: 1,
           p: 3,
-          width: { sm: `calc(100% - ${drawerWidth}px)` },
           mt: 8,
           backgroundColor: 'background.default',
+          overflowY: 'auto',
+          minWidth: 0,
+          height: '100%',
         }}
       >
         <Outlet />
