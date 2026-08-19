@@ -15,6 +15,7 @@ import {
   InputAdornment,
   IconButton,
   CircularProgress,
+  Chip,
 } from '@mui/material';
 import {
   Person as PersonIcon,
@@ -27,9 +28,12 @@ import {
   Delete as DeleteIcon,
   Gavel as GavelIcon,
   Warning as WarningIcon,
+  WorkspacePremium as WorkspacePremiumIcon,
+  Star as StarIcon,
 } from '@mui/icons-material';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../lib/supabase';
+import { SinpePaymentModal } from '../components/SinpePaymentModal';
 
 const Settings: React.FC = () => {
   const navigate = useNavigate();
@@ -38,6 +42,11 @@ const Settings: React.FC = () => {
   const [notifications, setNotifications] = useState(true);
   const [darkMode, setDarkMode] = useState(true);
   const [savedSuccess, setSavedSuccess] = useState<string | null>(null);
+
+  // Estados de suscripción Premium y Modal SINPE
+  const [isPremium, setIsPremium] = useState<boolean>(false);
+  const [premiumExpiresAt, setPremiumExpiresAt] = useState<string | null>(null);
+  const [showSinpeModal, setShowSinpeModal] = useState<boolean>(false);
 
   // Clave dinámica de almacenamiento para aislar el PIN por usuario
   const pinStorageKey = user?.id ? `app_pin_code_${user.id}` : null;
@@ -59,6 +68,27 @@ const Settings: React.FC = () => {
       setHasExistingPin(true);
     }
   }, [pinStorageKey]);
+
+  useEffect(() => {
+    const fetchPremiumStatus = async () => {
+      if (!user?.id) return;
+      try {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('is_premium, premium_expires_at')
+          .eq('id', user.id)
+          .single();
+
+        if (profile) {
+          setIsPremium(!!profile.is_premium);
+          setPremiumExpiresAt(profile.premium_expires_at);
+        }
+      } catch (err) {
+        console.error('Error fetching profile:', err);
+      }
+    };
+    fetchPremiumStatus();
+  }, [user?.id]);
 
   const handleSaveProfile = (e: React.FormEvent) => {
     e.preventDefault();
@@ -99,7 +129,6 @@ const Settings: React.FC = () => {
     setIsPinLocked(true);
   };
 
-  // Función para eliminar cuenta y datos (derecho de cancelación - Ley 8968, Costa Rica)
   const handleDeleteAccount = async () => {
     const confirmed = window.confirm(
       '⚠️ ¿Estás completamente seguro de borrar tu cuenta?\n\nEsta acción eliminará de forma PERMANENTE e IRREVERSIBLE todos tus gastos, ingresos, presupuestos, configuraciones y tu cuenta de acceso (correo/contraseña). No podrás recuperar esta información.'
@@ -161,7 +190,7 @@ const Settings: React.FC = () => {
           Ajustes
         </Typography>
         <Typography variant="body2" color="text.secondary">
-          Gestiona las preferencias de tu cuenta, seguridad y privacidad de datos.
+          Gestiona la suscripción de tu cuenta, seguridad y privacidad de datos.
         </Typography>
       </Box>
 
@@ -176,6 +205,90 @@ const Settings: React.FC = () => {
           {deleteError}
         </Alert>
       )}
+
+      {/* Plan de Suscripción */}
+      <Paper
+        elevation={0}
+        sx={{
+          p: 3,
+          borderRadius: 3,
+          background: isPremium
+            ? 'linear-gradient(135deg, #1e1b4b 0%, #312e81 100%)'
+            : 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)',
+          border: '1px solid',
+          borderColor: isPremium ? '#6366f1' : '#334155',
+          color: '#ffffff',
+        }}
+      >
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+            <WorkspacePremiumIcon sx={{ color: isPremium ? '#eab308' : '#94a3b8', fontSize: 28 }} />
+            <Box>
+              <Typography variant="h6" sx={{ fontWeight: 700, lineHeight: 1.2 }}>
+                Plan de Suscripción
+              </Typography>
+              <Typography variant="caption" sx={{ color: '#94a3b8' }}>
+                MoneyFlow Guru Cloud
+              </Typography>
+            </Box>
+          </Box>
+          <Chip
+            icon={isPremium ? <StarIcon sx={{ fontSize: '1rem !important', color: '#fff' }} /> : undefined}
+            label={isPremium ? 'PREMIUM ACTIVO' : 'PLAN GRATUITO'}
+            color={isPremium ? 'primary' : 'default'}
+            sx={{
+              fontWeight: 800,
+              px: 1,
+              bgcolor: isPremium ? '#6366f1' : '#334155',
+              color: '#fff',
+            }}
+          />
+        </Box>
+
+        <Divider sx={{ my: 2, borderColor: 'rgba(255,255,255,0.1)' }} />
+
+        <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, justifyContent: 'space-between', alignItems: { xs: 'flex-start', sm: 'center' }, gap: 2 }}>
+          <Box sx={{ flex: 1 }}>
+            {isPremium ? (
+              <Box>
+                <Typography variant="body2" sx={{ color: '#cbd5e1' }}>
+                  Tienes acceso ilimitado a transacciones, presupuestos, exportación PDF/Excel y 20 consultas diarias con el Gurú IA.
+                </Typography>
+                {premiumExpiresAt && (
+                  <Typography variant="caption" sx={{ color: '#818cf8', display: 'block', mt: 1 }}>
+                    Vence el: {new Date(premiumExpiresAt).toLocaleDateString()}
+                  </Typography>
+                )}
+              </Box>
+            ) : (
+              <Box>
+                <Typography variant="body2" sx={{ color: '#cbd5e1' }}>
+                  Estás en el Plan Gratuito (límite de 250 movimientos y 5 consultas/día al Gurú IA). Actualiza a Premium para desbloquear todo el potencial.
+                </Typography>
+              </Box>
+            )}
+          </Box>
+
+          {!isPremium && (
+            <Button
+              variant="contained"
+              onClick={() => setShowSinpeModal(true)}
+              sx={{
+                bgcolor: '#10b981',
+                '&:hover': { bgcolor: '#059669' },
+                fontWeight: 700,
+                textTransform: 'none',
+                borderRadius: 2,
+                px: 3,
+                py: 1,
+                whiteSpace: 'nowrap',
+              }}
+            >
+              Obtener Premium (₡2.990/mes)
+            </Button>
+          )}
+        </Box>
+      </Paper>
 
       {/* Perfil de Usuario */}
       <Paper sx={{ p: 3, borderRadius: 3, display: 'flex', flexDirection: 'column', gap: 2.5 }}>
@@ -437,6 +550,14 @@ const Settings: React.FC = () => {
           </Button>
         </Box>
       </Paper>
+
+      {/* Modal SINPE */}
+      <SinpePaymentModal
+        visible={showSinpeModal}
+        onClose={() => setShowSinpeModal(false)}
+        sinpePhone="89855110"
+        sinpeOwner="Armando Hernández"
+      />
     </Box>
   );
 };

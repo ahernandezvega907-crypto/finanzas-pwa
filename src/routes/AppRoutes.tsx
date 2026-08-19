@@ -5,6 +5,7 @@ import AppLayout from '../layouts/AppLayout';
 import { Box, CircularProgress } from '@mui/material';
 
 // Importaciones Lazy
+const LandingPage = lazy(() => import('../pages/LandingPage'));
 const Dashboard = lazy(() => import('../pages/Dashboard'));
 const Transactions = lazy(() => import('../pages/Transactions'));
 const Categories = lazy(() =>
@@ -17,6 +18,8 @@ const Reports = lazy(() => import('../pages/Reports'));
 const Settings = lazy(() => import('../pages/Settings'));
 const AiGuru = lazy(() => import('../pages/AiGuru'));
 const Support = lazy(() => import('../pages/Support'));
+const Pricing = lazy(() => import('../pages/Pricing'));
+const AdminSubscriptions = lazy(() => import('../pages/AdminSubscriptions'));
 const Login = lazy(() => import('../pages/Login'));
 const PinLock = lazy(() => import('../pages/PinLock'));
 const PrivacyPolicy = lazy(() => import('../pages/PrivacyPolicy'));
@@ -33,12 +36,13 @@ export const AppRoutes: React.FC = () => {
     <Suspense fallback={<LoadingFallback />}>
       <Routes>
         {/* Rutas Públicas */}
+        <Route path="/" element={<LandingPage />} />
         <Route path="/login" element={<Login />} />
         <Route path="/pin" element={<PinLock />} />
         <Route path="/privacy-policy" element={<PrivacyPolicy />} />
         <Route path="/terms-of-service" element={<TermsOfService />} />
 
-        {/* Rutas Protegidas en un solo AppLayout */}
+        {/* Rutas Protegidas dentro del Layout */}
         <Route
           element={
             <ProtectedRoute>
@@ -46,7 +50,6 @@ export const AppRoutes: React.FC = () => {
             </ProtectedRoute>
           }
         >
-          <Route path="/" element={<Dashboard />} />
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/transactions" element={<Transactions />} />
           <Route path="/categories" element={<Categories />} />
@@ -54,9 +57,12 @@ export const AppRoutes: React.FC = () => {
           <Route path="/reports" element={<Reports />} />
           <Route path="/settings" element={<Settings />} />
           <Route path="/soporte" element={<Support />} />
+          <Route path="/pricing" element={<Pricing />} />
+          <Route path="/admin" element={<AdminSubscriptions />} />
           <Route path="/ai-guru" element={<AiGuru />} />
         </Route>
 
+        {/* Redirección final */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </Suspense>
