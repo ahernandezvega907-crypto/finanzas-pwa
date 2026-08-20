@@ -13,13 +13,16 @@ import {
   MenuItem,
   CircularProgress,
   Alert,
+  Snackbar,
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
+import { useNavigate } from 'react-router-dom';
 
 import { useAuth } from '../context/AuthContext';
 import { useCategories } from '../features/categories/hooks/useCategories';
 import { budgetsRepository, BudgetRow } from '../features/budgets/repositories/budget.repository';
 import { getUserFriendlyError } from '../lib/getUserFriendlyError';
+import { usePremium } from '../hooks/usePremium';
 
 function getCurrentMonthRange() {
   const now = new Date();
@@ -30,7 +33,9 @@ function getCurrentMonthRange() {
 }
 
 export const Budgets: React.FC = () => {
+  const navigate = useNavigate();
   const { user } = useAuth();
+  const { isPremium } = usePremium();
   const { categoriesQuery } = useCategories();
   const categories = categoriesQuery?.data || [];
 
@@ -42,6 +47,9 @@ export const Budgets: React.FC = () => {
   const [openModal, setOpenModal] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState('');
   const [limitAmount, setLimitAmount] = useState('');
+  const [errorSnackbar, setErrorSnackbar] = useState<string | null>(null);
+
+  const MAX_FREE_BUDGETS = 1;
 
   const fetchBudgets = useCallback(async () => {
     if (!user?.id) return;
@@ -60,6 +68,14 @@ export const Budgets: React.FC = () => {
   useEffect(() => {
     fetchBudgets();
   }, [fetchBudgets]);
+
+  const handleOpenModal = () => {
+    if (!isPremium && budgets.length >= MAX_FREE_BUDGETS) {
+      setErrorSnackbar(`El Plan Gratuito permite máximo ${MAX_FREE_BUDGETS} presupuesto. Pásate a Premium para presupuestos ilimitados.`);
+      return;
+    }
+    setOpenModal(true);
+  };
 
   const handleAddBudget = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -106,7 +122,7 @@ export const Budgets: React.FC = () => {
         <Button
           variant="contained"
           startIcon={<AddIcon />}
-          onClick={() => setOpenModal(true)}
+          onClick={handleOpenModal}
           sx={{ borderRadius: 2, fontWeight: 600 }}
         >
           Nuevo Presupuesto
@@ -206,6 +222,24 @@ export const Budgets: React.FC = () => {
           </DialogActions>
         </Box>
       </Dialog>
+
+      <Snackbar
+        open={!!errorSnackbar}
+        autoHideDuration={6000}
+        onClose={() => setErrorSnackbar(null)}
+      >
+        <Alert
+          severity="warning"
+          onClose={() => setErrorSnackbar(null)}
+          action={
+            <Button color="inherit" size="small" onClick={() => navigate('/pricing')}>
+              MEJORAR PLAN
+            </Button>
+          }
+        >
+          {errorSnackbar}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 };
