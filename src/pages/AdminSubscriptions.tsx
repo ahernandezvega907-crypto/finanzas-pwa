@@ -1,98 +1,145 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Container,
   Typography,
-  Box,
   Paper,
-  TextField,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
   Button,
+  Chip,
+  Box,
   Alert,
   CircularProgress,
 } from '@mui/material';
-import VerifiedIcon from '@mui/icons-material/Verified';
 import { supabase } from '../lib/supabase';
+import { useAuth } from '../context/AuthContext';
+
+interface Profile {
+  id: string;
+  email: string | null;
+  is_premium: boolean;
+  premium_expires_at: string | null;
+}
 
 export const AdminSubscriptions: React.FC = () => {
-  const [userId, setUserId] = useState<string>('');
-  const [days, setDays] = useState<number>(30);
-  const [loading, setLoading] = useState<boolean>(false);
-  const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const { user } = useAuth();
+  const [profiles, setProfiles] = useState<Profile[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleGrantPremium = async () => {
-    if (!userId.trim()) return;
+  const fetchProfiles = async () => {
     setLoading(true);
-    setMessage(null);
-
+    setError(null);
     try {
-      const { error } = await supabase.rpc('grant_manual_premium', {
-        target_user_id: userId.trim(),
-        duration_days: Number(days),
-      });
+      const { data, error: fetchError } = await supabase
+        .from('profiles')
+        .select('id, email, is_premium, premium_expires_at')
+        .order('created_at', { ascending: false });
 
-      if (error) throw error;
-
-      setMessage({
-        type: 'success',
-        text: `Plan Premium activado correctamente para el usuario por ${days} días.`,
-      });
-      setUserId('');
+      if (fetchError) throw fetchError;
+      setProfiles(data || []);
     } catch (err: any) {
-      setMessage({
-        type: 'error',
-        text: err.message || 'Error al activar el plan Premium.',
-      });
+      setError(err.message || 'Error al cargar usuarios');
     } finally {
       setLoading(false);
     }
   };
 
+  useEffect(() => {
+    if (user?.email === 'ahernandezvega907@gmail.com') {
+      fetchProfiles();
+    }
+  }, [user]);
+
+  if (user?.email !== 'ahernandezvega907@gmail.com') {
+    return (
+      <Container maxWidth="sm" sx={{ py: 6 }}>
+        <Alert severity="error">No tienes permisos para acceder a esta página.</Alert>
+      </Container>
+    );
+  }
+
+  const togglePremium = async (profileId: string, currentStatus: boolean) => {
+    try {
+      const newStatus = !currentStatus;
+      const expiresAt = newStatus
+        ? new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
+        : null;
+
+      const { error: updateError } = await supabase
+        .from('profiles')
+        .update({
+          is_premium: newStatus,
+          premium_expires_at: expiresAt,
+        })
+        .eq('id', profileId);
+
+      if (updateError) throw updateError;
+      await fetchProfiles();
+    } catch (err: any) {
+      alert(err.message || 'Error al actualizar suscripción');
+    }
+  };
+
   return (
-    <Container maxWidth="sm" sx={{ py: 6 }}>
-      <Paper elevation={3} sx={{ p: 4, borderRadius: 3 }}>
-        <Typography variant="h5" component="h1" sx={{ fontWeight: 800, mb: 1 }}>
-          Administración de Suscripciones SINPE
-        </Typography>
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-          Activa manualmente el estado Premium a los usuarios tras verificar el comprobante de pago.
-        </Typography>
+    <Container maxWidth="lg" sx={{ py: 4 }}>
+      <Typography variant="h4" sx={{ fontWeight: 'bold', mb: 3 }}>
+        Administración de Suscripciones
+      </Typography>
 
-        {message && (
-          <Alert severity={message.type} sx={{ mb: 3 }}>
-            {message.text}
-          </Alert>
-        )}
+      {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
 
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
-          <TextField
-            fullWidth
-            label="UUID del Usuario (Supabase User ID)"
-            placeholder="e.g. 123e4567-e89b-12d3-a456-426614174000"
-            value={userId}
-            onChange={(e) => setUserId(e.target.value)}
-          />
-
-          <TextField
-            fullWidth
-            type="number"
-            label="Días de acceso Premium"
-            value={days}
-            onChange={(e) => setDays(Number(e.target.value))}
-          />
-
-          <Button
-            fullWidth
-            variant="contained"
-            color="primary"
-            size="large"
-            disabled={loading || !userId.trim()}
-            startIcon={loading ? <CircularProgress size={20} /> : <VerifiedIcon />}
-            onClick={handleGrantPremium}
-            sx={{ borderRadius: 2, fontWeight: 700, py: 1.2 }}
-          >
-            {loading ? 'Procesando...' : 'Activar Premium'}
-          </Button>
+      {loading ? (
+        <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+          <CircularProgress />
         </Box>
-      </Paper>
+      ) : (
+        <TableContainer component={Paper}>
+          <Table>
+            <TableHead>
+              <TableRow>
+                <TableCell>Email / ID</TableCell>
+                <TableCell>Estado</TableCell>
+                <TableCell>Expira</TableCell>
+                <TableCell align="right">Acciones</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {profiles.map((p) => (
+                <TableRow key={p.id}>
+                  <TableCell>{p.email || p.id}</TableCell>
+                  <TableCell>
+                    <Chip
+                      label={p.is_premium ? 'PREMIUM' : 'FREE'}
+                      color={p.is_premium ? 'primary' : 'default'}
+                      size="small"
+                    />
+                  </TableCell>
+                  <TableCell>
+                    {p.premium_expires_at
+                      ? new Date(p.premium_expires_at).toLocaleDateString()
+                      : 'N/A'}
+                  </TableCell>
+                  <TableCell align="right">
+                    <Button
+                      variant={p.is_premium ? 'outlined' : 'contained'}
+                      color={p.is_premium ? 'error' : 'success'}
+                      size="small"
+                      onClick={() => togglePremium(p.id, p.is_premium)}
+                    >
+                      {p.is_premium ? 'Cancelar Premium' : 'Activar Premium'}
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </TableContainer>
+      )}
     </Container>
   );
 };

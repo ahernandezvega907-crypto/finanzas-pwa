@@ -1,11 +1,13 @@
 {
   "compilerOptions": {
-    "target": "esnext",
-    "module": "esnext",
-    "moduleResolution": "bundler",
+    "target": "ESNext",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "lib": ["ESNext", "DOM"],
+    "strict": false,
     "noEmit": true,
-    "lib": ["esnext"],
-    "strict": false
+    "skipLibCheck": true,
+    "allowJs": true
   },
   "include": ["./**/*.ts"]
 }
