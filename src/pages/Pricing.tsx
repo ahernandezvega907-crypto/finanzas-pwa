@@ -26,7 +26,7 @@ export const Pricing: React.FC = () => {
   const { user } = useAuth();
   const [isPremium, setIsPremium] = useState<boolean>(false);
   const [showSinpeModal, setShowSinpeModal] = useState<boolean>(false);
-  const [, setSelectedPlan] = useState<'mensual' | 'anual'>('mensual');
+  const [selectedPlan, setSelectedPlan] = useState<'mensual' | 'anual'>('mensual');
 
   useEffect(() => {
     const fetchSubscriptionStatus = async () => {
@@ -343,6 +343,7 @@ export const Pricing: React.FC = () => {
         onClose={() => setShowSinpeModal(false)}
         sinpePhone="89855110"
         sinpeOwner="Armando Hernández"
+        plan={selectedPlan}
       />
     </Container>
   );

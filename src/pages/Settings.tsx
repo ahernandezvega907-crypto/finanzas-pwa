@@ -553,10 +553,11 @@ const Settings: React.FC = () => {
 
       {/* Modal SINPE */}
       <SinpePaymentModal
-        visible={showSinpeModal}
-        onClose={() => setShowSinpeModal(false)}
-        sinpePhone="89855110"
-        sinpeOwner="Armando Hernández"
+      visible={showSinpeModal}
+      onClose={() => setShowSinpeModal(false)}
+      sinpePhone="89855110"
+      sinpeOwner="Armando Hernández"
+      plan="mensual"
       />
     </Box>
   );

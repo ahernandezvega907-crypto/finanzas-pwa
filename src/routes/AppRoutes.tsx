@@ -3,6 +3,9 @@ import { Routes, Route, Navigate } from 'react-router-dom';
 import { ProtectedRoute } from './ProtectedRoute';
 import AppLayout from '../layouts/AppLayout';
 import { Box, CircularProgress } from '@mui/material';
+import { useAuth } from '../context/AuthContext';
+
+const ADMIN_EMAIL = 'ahernandezvega907@gmail.com';
 
 // Importaciones Lazy
 const LandingPage = lazy(() => import('../pages/LandingPage'));
@@ -31,6 +34,14 @@ const LoadingFallback = () => (
   </Box>
 );
 
+const AdminGuard: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { user } = useAuth();
+  if (!user || user.email !== ADMIN_EMAIL) {
+    return <Navigate to="/dashboard" replace />;
+  }
+  return <>{children}</>;
+};
+
 export const AppRoutes: React.FC = () => {
   return (
     <Suspense fallback={<LoadingFallback />}>
@@ -58,7 +69,14 @@ export const AppRoutes: React.FC = () => {
           <Route path="/settings" element={<Settings />} />
           <Route path="/soporte" element={<Support />} />
           <Route path="/pricing" element={<Pricing />} />
-          <Route path="/admin" element={<AdminSubscriptions />} />
+          <Route
+            path="/admin"
+            element={
+              <AdminGuard>
+                <AdminSubscriptions />
+              </AdminGuard>
+            }
+          />
           <Route path="/ai-guru" element={<AiGuru />} />
         </Route>
 

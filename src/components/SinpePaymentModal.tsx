@@ -21,6 +21,7 @@ interface SinpePaymentModalProps {
   onClose: () => void;
   sinpePhone: string;
   sinpeOwner: string;
+  plan: 'mensual' | 'anual';
 }
 
 export const SinpePaymentModal: React.FC<SinpePaymentModalProps> = ({
@@ -28,29 +29,49 @@ export const SinpePaymentModal: React.FC<SinpePaymentModalProps> = ({
   onClose,
   sinpePhone,
   sinpeOwner,
+  plan,
 }) => {
   const [copied, setCopied] = useState<boolean>(false);
   const [referenceNumber, setReferenceNumber] = useState<string>('');
   const [submitted, setSubmitted] = useState<boolean>(false);
+  const [warning, setWarning] = useState<string>('');
 
-  const handleCopyPhone = () => {
-    navigator.clipboard.writeText(sinpePhone);
-    setCopied(true);
+  const handleCopyPhone = async () => {
+    try {
+      await navigator.clipboard.writeText(sinpePhone);
+      setCopied(true);
+    } catch {
+      setWarning('No se pudo copiar automáticamente. Copia el número manualmente: ' + sinpePhone);
+    }
   };
 
   const handleSubmitProof = () => {
     if (!referenceNumber.trim()) return;
 
-    const mensaje = `Hola, acabo de realizar un SINPE Móvil. Número de referencia: ${referenceNumber.trim()}. Me gustaría activar mi plan Premium en MoneyFlow.`;
+    const planLabel =
+      plan === 'mensual'
+        ? 'Premium Mensual (₡2.990/mes)'
+        : 'Premium Anual (₡24.900/año)';
+
+    const mensaje = `Hola, acabo de realizar un SINPE Móvil. Número de referencia: ${referenceNumber.trim()}. Me gustaría activar mi plan ${planLabel} en MoneyFlow.`;
     const url = `https://wa.me/506${sinpePhone}?text=${encodeURIComponent(mensaje)}`;
 
-    window.open(url, '_blank');
+    const win = window.open(url, '_blank');
+
+    if (!win || win.closed) {
+      setWarning(
+        'No pudimos abrir WhatsApp automáticamente. Copia el número y escríbenos manualmente por WhatsApp.'
+      );
+      return;
+    }
+
     setSubmitted(true);
   };
 
   const handleCloseAll = () => {
     setSubmitted(false);
     setReferenceNumber('');
+    setWarning('');
     onClose();
   };
 
@@ -70,7 +91,7 @@ export const SinpePaymentModal: React.FC<SinpePaymentModalProps> = ({
         <DialogContent dividers>
           {submitted ? (
             <Alert severity="success" sx={{ my: 2 }}>
-              ¡Comprobante enviado! Validaremos tu transferencia y activaremos tu cuenta Premium a la brevedad.
+              ¡Comprobante enviado por WhatsApp! Validaremos tu transferencia y activaremos tu cuenta Premium a la brevedad.
             </Alert>
           ) : (
             <>
@@ -123,8 +144,13 @@ export const SinpePaymentModal: React.FC<SinpePaymentModalProps> = ({
                 placeholder="Ej: 12345678"
                 value={referenceNumber}
                 onChange={(e) => setReferenceNumber(e.target.value)}
-                sx={{ mb: 2 }}
+                sx={{ mb: 1 }}
               />
+              {warning && (
+                <Typography variant="caption" color="warning.main" sx={{ display: 'block', mb: 1 }}>
+                  {warning}
+                </Typography>
+              )}
             </>
           )}
         </DialogContent>
