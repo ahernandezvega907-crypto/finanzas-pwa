@@ -9,6 +9,8 @@ import {
   CardContent,
   Stack,
   Chip,
+  AppBar,
+  Toolbar,
 } from '@mui/material';
 import {
   Speed as SpeedIcon,
@@ -26,16 +28,53 @@ export const LandingPage: React.FC = () => {
 
   return (
     <Box
-      sx={{
-        minHeight: '100vh',
-        width: '100%',
-        bgcolor: '#0B0F19',
-        color: '#FFFFFF',
-        overflowX: 'hidden',
-        overflowY: 'auto',
-        pb: 8,
-      }}
-    >
+       id="landing-scroll-container"
+       sx={{
+         height: '100vh',
+         width: '100%',
+         bgcolor: '#0B0F19',
+         color: '#FFFFFF',
+         overflowX: 'hidden',
+         overflowY: 'auto',
+         pb: 8,
+       }}
+     >
+      {/* Navbar fija */}
+      <AppBar
+        position="sticky"
+        elevation={0}
+        sx={{
+          bgcolor: 'rgba(11, 15, 25, 0.85)',
+          backdropFilter: 'blur(8px)',
+          borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
+        }}
+      >
+        <Toolbar sx={{ justifyContent: 'space-between' }}>
+          <Typography
+            variant="h6"
+            sx={{ fontWeight: 800, cursor: 'pointer' }}
+            onClick={() => document.getElementById('landing-scroll-container')?.scrollTo({ top: 0, behavior: 'smooth' })}
+          >
+            MoneyFlow
+          </Typography>
+          <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
+            <Button
+              onClick={() => navigate('/login')}
+              sx={{ color: '#FFFFFF', textTransform: 'none', fontWeight: 600 }}
+            >
+              Iniciar sesión
+            </Button>
+            <Button
+              variant="contained"
+              onClick={() => navigate('/login?mode=register')}
+              sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 700 }}
+            >
+              Probar gratis
+            </Button>
+          </Box>
+        </Toolbar>
+      </AppBar>
+
       {/* Banner Superior Promocional */}
       <Box
         sx={{
@@ -67,7 +106,7 @@ export const LandingPage: React.FC = () => {
       <Container maxWidth="lg" sx={{ pt: { xs: 6, md: 10 }, pb: { xs: 6, md: 8 }, textAlign: 'center' }}>
         <Chip
           icon={<StarIcon sx={{ color: '#FFD700 !important' }} />}
-          label="Diseñado para Costa Rica 🇨🇷"
+          label="Diseñado para Costa Rica"
           sx={{
             bgcolor: 'rgba(99, 102, 241, 0.15)',
             color: '#818CF8',
