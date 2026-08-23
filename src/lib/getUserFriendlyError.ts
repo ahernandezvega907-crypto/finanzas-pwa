@@ -38,6 +38,9 @@ export function getUserFriendlyError(error: unknown): string {
     if (msg.includes('row-level security') || msg.includes('rls')) {
       return 'No tienes permiso para realizar esta acción.';
     }
+    if (msg.includes('límite') || msg.includes('limite')) {
+      return error.message;
+    }
     return 'Ocurrió un error inesperado. Intenta nuevamente.';
   }
 
