@@ -2,9 +2,12 @@ import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../../context/AuthContext';
 import { Transaction, CreateTransactionInput } from '../domain/transaction.types';
 import { TransactionService } from '../services/transactions.service';
+import { usePremium } from '../../../hooks/usePremium';
+import { LimitService } from '../../../utils/limits';
 
 export function useTransactions() {
   const { user } = useAuth();
+  const { isPremium } = usePremium();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<Error | null>(null);
@@ -46,6 +49,12 @@ export function useTransactions() {
       return;
     }
 
+    const limitService = new LimitService(isPremium ? 'premium' : 'free');
+    const limitCheck = limitService.canAddTransaction(transactions.length);
+    if (!limitCheck.allowed) {
+      throw new Error(limitCheck.reason);
+    }
+
     setError(null);
     const tempId = crypto.randomUUID();
 
@@ -71,6 +80,7 @@ export function useTransactions() {
     } else {
       setTransactions((prev) => prev.filter((t) => t.id !== tempId));
       setError(result.error);
+      throw result.error;
     }
   };
 

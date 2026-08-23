@@ -227,7 +227,7 @@ export const Pricing: React.FC = () => {
                 <ListItemIcon sx={{ minWidth: 32 }}>
                   <CheckCircleIcon color="success" fontSize="small" />
                 </ListItemIcon>
-                <ListItemText primary="Exportación PDF/Excel/CSV" />
+                <ListItemText primary="Exportación PDF/Excel/CSV (Próximamente)" sx={{ '& .MuiListItemText-primary': { color: 'text.secondary' } }} />
               </ListItem>
               <ListItem disableGutters>
                 <ListItemIcon sx={{ minWidth: 32 }}>
@@ -311,7 +311,7 @@ export const Pricing: React.FC = () => {
                 <ListItemIcon sx={{ minWidth: 32 }}>
                   <CheckCircleIcon color="success" fontSize="small" />
                 </ListItemIcon>
-                <ListItemText primary="Exportación PDF/Excel/CSV" />
+                <ListItemText primary="Exportación PDF/Excel/CSV (Próximamente)" sx={{ '& .MuiListItemText-primary': { color: 'text.secondary' } }} />
               </ListItem>
               <ListItem disableGutters>
                 <ListItemIcon sx={{ minWidth: 32 }}>

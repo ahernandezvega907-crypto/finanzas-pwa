@@ -124,6 +124,11 @@ export const Transactions: React.FC = () => {
         showToast('Movimiento actualizado con éxito');
       } else {
         await createTransaction(payload as any);
+        if (error) {
+          setActionError(getUserFriendlyError(error));
+          setSubmitting(false);
+          return;
+        }
         showToast('Movimiento registrado con éxito');
       }
       handleClose();

@@ -1,5 +1,6 @@
 import { useState, FormEvent } from 'react';
 import { useCategories } from '../hooks/useCategories';
+import type { Category } from '../../../types/category';
 
 export function CategoryManager() {
   const [name, setName] = useState('');
@@ -15,7 +16,7 @@ export function CategoryManager() {
     if (!trimmedName) return;
 
     createCategoryMutation.mutate(
-      { name: trimmedName } as any,
+      { name: trimmedName } as Omit<Category, 'id' | 'created_at'>,
       {
         onSuccess: () => setName(''),
       }
@@ -49,6 +50,12 @@ export function CategoryManager() {
         </button>
       </form>
 
+      {createCategoryMutation.isError && (
+        <p className="text-sm text-red-600 mb-4">
+          {(createCategoryMutation.error as Error).message}
+        </p>
+      )}
+
       {categoriesQuery.isLoading && (
         <p className="text-sm text-gray-500">Cargando categorías...</p>
       )}
@@ -68,7 +75,7 @@ export function CategoryManager() {
             </li>
           )}
 
-          {categoriesQuery.data.map((category) => (
+          {categoriesQuery.data.map((category: Category) => (
             <li
               key={category.id}
               className="flex items-center justify-between py-3"
@@ -88,3 +95,5 @@ export function CategoryManager() {
     </div>
   );
 }
+
+export default CategoryManager;

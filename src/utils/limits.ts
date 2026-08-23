@@ -57,6 +57,21 @@ export class LimitService {
     };
   }
 
+  public canCreateCategory(currentCount: number): LimitCheckResult {
+    if (this.limits.maxCategories === -1) {
+      return { allowed: true, currentValue: currentCount, limitValue: -1 };
+    }
+    const allowed = currentCount < this.limits.maxCategories;
+    return {
+      allowed,
+      reason: allowed
+        ? undefined
+        : `El plan Gratuito permite hasta ${this.limits.maxCategories} categorías personalizadas. Actualiza a Premium para categorías ilimitadas.`,
+      currentValue: currentCount,
+      limitValue: this.limits.maxCategories,
+    };
+  }
+
   public canQueryAi(queriesTodayCount: number): LimitCheckResult {
     const allowed = queriesTodayCount < this.limits.dailyAiQueries;
     return {
