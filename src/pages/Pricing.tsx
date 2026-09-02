@@ -227,7 +227,7 @@ export const Pricing: React.FC = () => {
                 <ListItemIcon sx={{ minWidth: 32 }}>
                   <CheckCircleIcon color="success" fontSize="small" />
                 </ListItemIcon>
-                <ListItemText primary="Exportación PDF/Excel/CSV (Próximamente)" sx={{ '& .MuiListItemText-primary': { color: 'text.secondary' } }} />
+                <ListItemText primary="Exportación PDF/Excel/CSV" sx={{ '& .MuiListItemText-primary': { color: 'text.secondary' } }} />
               </ListItem>
               <ListItem disableGutters>
                 <ListItemIcon sx={{ minWidth: 32 }}>
@@ -311,7 +311,7 @@ export const Pricing: React.FC = () => {
                 <ListItemIcon sx={{ minWidth: 32 }}>
                   <CheckCircleIcon color="success" fontSize="small" />
                 </ListItemIcon>
-                <ListItemText primary="Exportación PDF/Excel/CSV (Próximamente)" sx={{ '& .MuiListItemText-primary': { color: 'text.secondary' } }} />
+                <ListItemText primary="Exportación PDF/Excel/CSV" sx={{ '& .MuiListItemText-primary': { color: 'text.secondary' } }} />
               </ListItem>
               <ListItem disableGutters>
                 <ListItemIcon sx={{ minWidth: 32 }}>
@@ -341,7 +341,7 @@ export const Pricing: React.FC = () => {
       <SinpePaymentModal
         visible={showSinpeModal}
         onClose={() => setShowSinpeModal(false)}
-        sinpePhone="89855110"
+        sinpePhone="89747456"
         sinpeOwner="Armando Hernández"
         plan={selectedPlan}
       />

@@ -423,7 +423,7 @@ export const LandingPage: React.FC = () => {
                     'Transacciones ilimitadas',
                     'Presupuestos ilimitados',
                     '20 Consultas diarias a Gurú IA',
-                    'Exportación PDF y Excel (Próximamente)',
+                    'Exportación PDF y Excel',
                     'Soporte prioritario por WhatsApp',
                   ].map((item, idx) => (
                     <Box key={idx} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>

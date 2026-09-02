@@ -10,9 +10,12 @@ import {
   MenuItem,
   CircularProgress,
   Divider,
+  Tooltip,
 } from '@mui/material';
 import DownloadIcon from '@mui/icons-material/Download';
 import TableChartIcon from '@mui/icons-material/TableChart';
+import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
+import TableRowsIcon from '@mui/icons-material/TableRows';
 import {
   AreaChart,
   Area,
@@ -25,11 +28,21 @@ import {
 
 import { useTransactions } from '../features/transactions/hooks/useTransactions';
 import { useCategories } from '../features/categories/hooks/useCategories';
+import { usePremium } from '../hooks/usePremium';
+import { LimitService } from '../utils/limits';
+
+// Importaciones para PDF y Excel
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
+import * as XLSX from 'xlsx';
 
 export const Reports: React.FC = () => {
   const { transactions, loading } = useTransactions();
   const { categoriesQuery } = useCategories();
   const categories = categoriesQuery?.data || [];
+
+  const { isPremium } = usePremium();
+  const limitService = new LimitService(isPremium ? 'premium' : 'free');
 
   const [filterType, setFilterType] = useState<string>('all');
 
@@ -67,7 +80,8 @@ export const Reports: React.FC = () => {
     }));
   }, [transactions]);
 
-  // Función para exportar las transacciones filtradas a CSV
+  // --- Funciones de exportación ---
+
   const exportToCSV = () => {
     if (filteredTransactions.length === 0) return;
 
@@ -98,10 +112,69 @@ export const Reports: React.FC = () => {
     document.body.removeChild(link);
   };
 
+  const exportToPDF = () => {
+    if (!limitService.canExport('pdf')) {
+      alert('Esta función es exclusiva para usuarios Premium.');
+      return;
+    }
+    if (filteredTransactions.length === 0) return;
+
+    const doc = new jsPDF();
+    doc.text('Reporte de Movimientos - MoneyFlow', 14, 15);
+    doc.setFontSize(10);
+    doc.text(`Generado el ${new Date().toLocaleDateString('es-CR')}`, 14, 22);
+
+    const rows = filteredTransactions.map((tx: any) => {
+      const catObj = categories.find((c: any) => c.id === (tx.category_id || tx.categoryId));
+      return [
+        tx.date ? tx.date.split('T')[0] : '',
+        tx.type === 'income' ? 'Ingreso' : 'Gasto',
+        `₡${Number(tx.amount).toLocaleString('es-CR')}`,
+        catObj ? catObj.name : 'Sin Categoría',
+        tx.description || '',
+      ];
+    });
+
+    autoTable(doc, {
+      head: [['Fecha', 'Tipo', 'Monto', 'Categoría', 'Descripción']],
+      body: rows,
+      startY: 30,
+      styles: { fontSize: 8 },
+      headStyles: { fillColor: [16, 185, 129] },
+    });
+
+    doc.save(`reporte_finanzas_${new Date().toISOString().split('T')[0]}.pdf`);
+  };
+
+  const exportToExcel = () => {
+    if (!limitService.canExport('excel')) {
+      alert('Esta función es exclusiva para usuarios Premium.');
+      return;
+    }
+    if (filteredTransactions.length === 0) return;
+
+    const rows = filteredTransactions.map((tx: any) => {
+      const catObj = categories.find((c: any) => c.id === (tx.category_id || tx.categoryId));
+      return {
+        Fecha: tx.date ? tx.date.split('T')[0] : '',
+        Tipo: tx.type === 'income' ? 'Ingreso' : 'Gasto',
+        Monto: tx.amount,
+        Categoría: catObj ? catObj.name : 'Sin Categoría',
+        Descripción: tx.description || '',
+      };
+    });
+
+    const worksheet = XLSX.utils.json_to_sheet(rows);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Movimientos');
+    XLSX.writeFile(workbook, `reporte_finanzas_${new Date().toISOString().split('T')[0]}.xlsx`);
+  };
+
   const formatCurrency = (amount: number) => {
     return `₡${amount.toLocaleString('es-CR', { minimumFractionDigits: 0 })}`;
   };
 
+  // --- Render ---
   return (
     <Box sx={{ p: 3, maxWidth: 1100, margin: '0 auto' }}>
       <Box
@@ -118,16 +191,51 @@ export const Reports: React.FC = () => {
           Reportes y Exportación
         </Typography>
 
-        <Button
-          variant="contained"
-          color="success"
-          startIcon={<DownloadIcon />}
-          onClick={exportToCSV}
-          disabled={filteredTransactions.length === 0}
-          sx={{ borderRadius: 2, fontWeight: 600 }}
-        >
-          Exportar a CSV
-        </Button>
+        <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+          {/* CSV */}
+          <Button
+            variant="contained"
+            color="success"
+            startIcon={<DownloadIcon />}
+            onClick={exportToCSV}
+            disabled={filteredTransactions.length === 0}
+            sx={{ borderRadius: 2, fontWeight: 600 }}
+          >
+            CSV
+          </Button>
+
+          {/* PDF */}
+          <Tooltip title={!limitService.canExport('pdf') ? 'Función Premium' : ''}>
+            <span>
+              <Button
+                variant="contained"
+                color="primary"
+                startIcon={<PictureAsPdfIcon />}
+                onClick={exportToPDF}
+                disabled={filteredTransactions.length === 0 || !limitService.canExport('pdf')}
+                sx={{ borderRadius: 2, fontWeight: 600 }}
+              >
+                PDF
+              </Button>
+            </span>
+          </Tooltip>
+
+          {/* Excel */}
+          <Tooltip title={!limitService.canExport('excel') ? 'Función Premium' : ''}>
+            <span>
+              <Button
+                variant="contained"
+                color="secondary"
+                startIcon={<TableRowsIcon />}
+                onClick={exportToExcel}
+                disabled={filteredTransactions.length === 0 || !limitService.canExport('excel')}
+                sx={{ borderRadius: 2, fontWeight: 600 }}
+              >
+                Excel
+              </Button>
+            </span>
+          </Tooltip>
+        </Box>
       </Box>
 
       {loading ? (
@@ -210,7 +318,9 @@ export const Reports: React.FC = () => {
                   Total de registros seleccionados: {filteredTransactions.length}
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
-                  Presiona "Exportar a CSV" para descargar el reporte compatible con Microsoft Excel o Google Sheets.
+                  Presiona los botones de exportación para descargar el reporte en el formato deseado.
+                  <br />
+                  <strong>Nota:</strong> PDF y Excel son funciones Premium.
                 </Typography>
               </Box>
             </Box>
