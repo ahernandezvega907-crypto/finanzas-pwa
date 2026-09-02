@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useMemo } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { getUserFriendlyError } from '../lib/getUserFriendlyError';
 import {
   Box,
@@ -16,6 +16,7 @@ import SendIcon from '@mui/icons-material/Send';
 import SmartToyIcon from '@mui/icons-material/SmartToy';
 import PersonIcon from '@mui/icons-material/Person';
 import LightbulbIcon from '@mui/icons-material/Lightbulb';
+import { useMonthlyComparison } from '../hooks/useMonthlyComparison';
 
 import { useTransactions } from '../features/transactions/hooks/useTransactions';
 import { useCategories } from '../features/categories/hooks/useCategories';
@@ -55,44 +56,7 @@ export const AiGuru: React.FC = () => {
     scrollToBottom();
   }, [messages, isThinking]);
 
-  // Resumen del estado financiero: se envía como contexto a la Edge Function
-  const financialSummary = useMemo(() => {
-    let income = 0;
-    let expense = 0;
-    const catMap: Record<string, number> = {};
-
-    transactions.forEach((tx: any) => {
-      const amt = Number(tx.amount) || 0;
-      if (tx.type === 'income') {
-        income += amt;
-      } else if (tx.type === 'expense') {
-        expense += amt;
-        const catId = tx.category_id || tx.categoryId;
-        const catObj = categories.find((c: any) => c.id === catId);
-        const catName = catObj ? catObj.name : 'Otros';
-        catMap[catName] = (catMap[catName] || 0) + amt;
-      }
-    });
-
-    const balance = income - expense;
-    let highestExpenseCat = 'Ninguna';
-    let maxExpense = 0;
-
-    Object.entries(catMap).forEach(([cat, amt]) => {
-      if (amt > maxExpense) {
-        maxExpense = amt;
-        highestExpenseCat = cat;
-      }
-    });
-
-    return {
-      totalIncome: income,
-      totalExpenses: expense,
-      balance,
-      highestExpenseCat,
-      maxExpense,
-    };
-  }, [transactions, categories]);
+  const financialSummary = useMonthlyComparison({ transactions, categories });
 
   const askGuru = async (userQuery: string): Promise<string> => {
     const {
@@ -157,8 +121,8 @@ export const AiGuru: React.FC = () => {
       };
       setMessages((prev) => [...prev, aiMsg]);
     } catch (err: any) {
-  setApiError(getUserFriendlyError(err));
-} finally {
+      setApiError(getUserFriendlyError(err));
+    } finally {
       setIsThinking(false);
     }
   };

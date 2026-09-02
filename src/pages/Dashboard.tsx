@@ -12,10 +12,12 @@ import {
 import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 import TrendingDownIcon from '@mui/icons-material/TrendingDown';
 import AccountBalanceWalletIcon from '@mui/icons-material/AccountBalanceWallet';
+import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend, BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
 
 import { useTransactions } from '../features/transactions/hooks/useTransactions';
 import { useCategories } from '../features/categories/hooks/useCategories';
+import { useMonthlyComparison } from '../hooks/useMonthlyComparison';
 
 const COLORS = ['#6366f1', '#ec4899', '#10b981', '#f59e0b', '#8b5cf6', '#06b6d4', '#ef4444', '#64748b'];
 
@@ -23,6 +25,30 @@ export const Dashboard: React.FC = () => {
   const { transactions, loading, error } = useTransactions();
   const { categoriesQuery } = useCategories();
   const categories = categoriesQuery?.data || [];
+
+  const monthlyComparison = useMonthlyComparison({ transactions, categories });
+
+  const spendingAlerts = React.useMemo(() => {
+    const alerts: string[] = [];
+    const THRESHOLD = 15; // % de variación mínimo para mostrar alerta
+
+    if (
+      monthlyComparison.expenseChangePercent !== null &&
+      monthlyComparison.expenseChangePercent >= THRESHOLD
+    ) {
+      alerts.push(
+        `Tus gastos totales de este mes son ${monthlyComparison.expenseChangePercent}% más altos que el mes anterior.`
+      );
+    }
+
+    monthlyComparison.categoryComparisons.forEach((c: any) => {
+  if (c.changePercent !== null && c.changePercent >= THRESHOLD && c.currentAmount > 0) {
+    alerts.push(`Gastás ${c.changePercent}% más en ${c.category} que el mes pasado.`);
+  }
+});
+
+    return alerts.slice(0, 3); // máximo 3 alertas para no saturar la pantalla
+  }, [monthlyComparison]);
 
   // 1. Cálculo de Totales
   const { totalIncome, totalExpense, balance } = useMemo(() => {
@@ -88,6 +114,16 @@ export const Dashboard: React.FC = () => {
         <Alert severity="error" sx={{ mb: 3, borderRadius: 2 }}>
           {typeof error === 'string' ? error : (error as any).message || 'Error al cargar los datos.'}
         </Alert>
+      )}
+
+      {!loading && spendingAlerts.length > 0 && (
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, mb: 3 }}>
+          {spendingAlerts.map((msg, idx) => (
+            <Alert key={idx} severity="warning" icon={<WarningAmberIcon />} sx={{ borderRadius: 2 }}>
+              {msg}
+            </Alert>
+          ))}
+        </Box>
       )}
 
       {loading ? (

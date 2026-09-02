@@ -136,16 +136,40 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    // 7. Contexto financiero
+    // 7. Contexto financiero (mes actual + comparativa con mes anterior)
     let financialContext = "";
     if (context) {
+      const categoryLines = Array.isArray(context.categoryComparisons)
+        ? context.categoryComparisons
+            .filter((c: any) => c.currentAmount > 0 || c.previousAmount > 0)
+            .map((c: any) => {
+              const changeText =
+                c.changePercent === null
+                  ? "(sin datos del mes anterior para comparar)"
+                  : `(${c.changePercent > 0 ? "+" : ""}${c.changePercent}% vs mes anterior)`;
+              return `- ${c.category}: ₡${Number(c.currentAmount).toLocaleString("es-CR")} este mes ${changeText}`;
+            })
+            .join("\n")
+        : "";
+
       financialContext = `
---- CONTEXTO FINANCIERO DEL USUARIO ---
-Ingresos totales: ₡${Number(context.totalIncome || 0).toLocaleString("es-CR")}
-Gastos totales: ₡${Number(context.totalExpenses || 0).toLocaleString("es-CR")}
+--- CONTEXTO FINANCIERO DEL USUARIO (MES ACTUAL) ---
+Ingresos del mes: ₡${Number(context.totalIncome || 0).toLocaleString("es-CR")}
+Gastos del mes: ₡${Number(context.totalExpenses || 0).toLocaleString("es-CR")}
 Saldo del mes: ₡${Number(context.balance || 0).toLocaleString("es-CR")}
 Categoría con mayor gasto: ${context.highestExpenseCat || "No disponible"}
 Monto en esa categoría: ₡${Number(context.maxExpense || 0).toLocaleString("es-CR")}
+
+--- COMPARATIVA CON EL MES ANTERIOR ---
+Gastos del mes anterior: ₡${Number(context.previousMonthExpenses || 0).toLocaleString("es-CR")}
+Cambio en gasto total: ${
+        context.expenseChangePercent === null || context.expenseChangePercent === undefined
+          ? "sin datos suficientes del mes anterior"
+          : `${context.expenseChangePercent > 0 ? "+" : ""}${context.expenseChangePercent}%`
+      }
+
+Detalle por categoría:
+${categoryLines || "Sin categorías con gasto registrado."}
 `;
     }
 
@@ -154,6 +178,9 @@ Tu función es ayudar al usuario a comprender y mejorar sus finanzas personales.
 Personalidad: Profesional, empática, clara, directa y motivadora.
 No inventes información financiera que no esté disponible.
 Si faltan datos, indícalo claramente.
+Cuando el usuario pregunte por tendencias, comparativas, o "cómo voy este mes", 
+usa los datos de COMPARATIVA CON EL MES ANTERIOR para dar una respuesta concreta 
+con porcentajes reales, no genéricos.
 ${financialContext}
 Responde en español con un tono breve, útil y práctico.`;
 
