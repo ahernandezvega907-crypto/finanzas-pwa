@@ -9,14 +9,17 @@ import {
   CardContent,
   Divider,
 } from '@mui/material';
-import TrendingUpIcon from '@mui/icons-material/TrendingUp';
-import TrendingDownIcon from '@mui/icons-material/TrendingDown';
-import AccountBalanceWalletIcon from '@mui/icons-material/AccountBalanceWallet';
-import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend, BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
 
 import { useTransactions } from '../features/transactions/hooks/useTransactions';
 import { useCategories } from '../features/categories/hooks/useCategories';
+import TrendingUpIcon from '@mui/icons-material/TrendingUp';
+import TrendingDownIcon from '@mui/icons-material/TrendingDown';
+import AccountBalanceWalletIcon from '@mui/icons-material/AccountBalanceWallet';
+import WarningAmberIcon from '@mui/icons-material/WarningAmber';
+import ShowChartIcon from '@mui/icons-material/ShowChart';
+import SavingsIcon from '@mui/icons-material/Savings';
+import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
 import { useMonthlyComparison } from '../hooks/useMonthlyComparison';
 
 const COLORS = ['#6366f1', '#ec4899', '#10b981', '#f59e0b', '#8b5cf6', '#06b6d4', '#ef4444', '#64748b'];
@@ -185,6 +188,73 @@ export const Dashboard: React.FC = () => {
                   </Typography>
                   <Typography variant="h5" sx={{ fontWeight: 700, color: 'error.main' }}>
                     {formatCurrency(totalExpense)}
+                  </Typography>
+                </Box>
+              </CardContent>
+            </Card>
+          </Box>
+
+                    {/* Tarjetas KPI adicionales */}
+          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', md: 'repeat(3, 1fr)' }, gap: 3, mb: 4 }}>
+            <Card sx={{ borderRadius: 3, boxShadow: 2 }}>
+              <CardContent sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                <Box sx={{ p: 1.5, borderRadius: 2, bgcolor: 'rgba(99, 102, 241, 0.1)', color: 'primary.main', display: 'flex' }}>
+                  <ShowChartIcon fontSize="large" />
+                </Box>
+                <Box>
+                  <Typography variant="body2" color="text.secondary">
+                    Gasto Promedio Diario
+                  </Typography>
+                  <Typography variant="h6" sx={{ fontWeight: 700 }}>
+                    {formatCurrency(monthlyComparison.dailyAverageExpense)}
+                  </Typography>
+                </Box>
+              </CardContent>
+            </Card>
+
+            <Card sx={{ borderRadius: 3, boxShadow: 2 }}>
+              <CardContent sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                <Box sx={{ p: 1.5, borderRadius: 2, bgcolor: 'rgba(245, 158, 11, 0.1)', color: 'warning.main', display: 'flex' }}>
+                  <CalendarMonthIcon fontSize="large" />
+                </Box>
+                <Box>
+                  <Typography variant="body2" color="text.secondary">
+                    Proyección Fin de Mes
+                  </Typography>
+                  <Typography variant="h6" sx={{ fontWeight: 700 }}>
+                    {formatCurrency(monthlyComparison.projectedMonthEndExpense)}
+                  </Typography>
+                </Box>
+              </CardContent>
+            </Card>
+
+            <Card sx={{ borderRadius: 3, boxShadow: 2 }}>
+              <CardContent sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                <Box
+                  sx={{
+                    p: 1.5,
+                    borderRadius: 2,
+                    bgcolor:
+                      monthlyComparison.savingsRatePercent !== null && monthlyComparison.savingsRatePercent >= 0
+                        ? 'rgba(16, 185, 129, 0.1)'
+                        : 'rgba(239, 68, 68, 0.1)',
+                    color:
+                      monthlyComparison.savingsRatePercent !== null && monthlyComparison.savingsRatePercent >= 0
+                        ? 'success.main'
+                        : 'error.main',
+                    display: 'flex',
+                  }}
+                >
+                  <SavingsIcon fontSize="large" />
+                </Box>
+                <Box>
+                  <Typography variant="body2" color="text.secondary">
+                    Tasa de Ahorro
+                  </Typography>
+                  <Typography variant="h6" sx={{ fontWeight: 700 }}>
+                    {monthlyComparison.savingsRatePercent === null
+                      ? 'Sin datos'
+                      : `${monthlyComparison.savingsRatePercent}%`}
                   </Typography>
                 </Box>
               </CardContent>

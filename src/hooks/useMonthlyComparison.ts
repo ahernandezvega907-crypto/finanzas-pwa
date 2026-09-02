@@ -12,6 +12,11 @@ export interface CategoryComparison {
   changePercent: number | null;
 }
 
+export interface TopCategory {
+  category: string;
+  amount: number;
+}
+
 export interface MonthlyComparisonResult {
   totalIncome: number;
   totalExpenses: number;
@@ -21,6 +26,11 @@ export interface MonthlyComparisonResult {
   previousMonthExpenses: number;
   expenseChangePercent: number | null;
   categoryComparisons: CategoryComparison[];
+  dailyAverageExpense: number;
+  dailyAverageIncome: number;
+  projectedMonthEndExpense: number;
+  savingsRatePercent: number | null;
+  topCategories: TopCategory[];
 }
 
 export function useMonthlyComparison({
@@ -83,6 +93,24 @@ export function useMonthlyComparison({
       return { category: cat, currentAmount, previousAmount, changePercent };
     });
 
+    // --- Nuevos cálculos ---
+    const daysElapsed = Math.max(now.getDate(), 1);
+    const totalDaysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+
+    const dailyAverageExpense = Math.round(current.expense / daysElapsed);
+    const dailyAverageIncome = Math.round(current.income / daysElapsed);
+    const projectedMonthEndExpense = Math.round(dailyAverageExpense * totalDaysInMonth);
+
+    const savingsRatePercent =
+      current.income > 0
+        ? Math.round(((current.income - current.expense) / current.income) * 100)
+        : null;
+
+    const topCategories: TopCategory[] = Object.entries(current.catMap)
+      .sort(([, a], [, b]) => b - a)
+      .slice(0, 5)
+      .map(([category, amount]) => ({ category, amount }));
+
     return {
       totalIncome: current.income,
       totalExpenses: current.expense,
@@ -92,6 +120,11 @@ export function useMonthlyComparison({
       previousMonthExpenses: previous.expense,
       expenseChangePercent,
       categoryComparisons,
+      dailyAverageExpense,
+      dailyAverageIncome,
+      projectedMonthEndExpense,
+      savingsRatePercent,
+      topCategories,
     };
   }, [transactions, categories]);
 }
