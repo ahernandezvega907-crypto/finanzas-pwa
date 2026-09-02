@@ -129,14 +129,14 @@ export const Reports: React.FC = () => {
       return [
         tx.date ? tx.date.split('T')[0] : '',
         tx.type === 'income' ? 'Ingreso' : 'Gasto',
-        `₡${Number(tx.amount).toLocaleString('es-CR')}`,
+        `${Number(tx.amount).toLocaleString('es-CR')}`,
         catObj ? catObj.name : 'Sin Categoría',
         tx.description || '',
       ];
     });
 
     autoTable(doc, {
-      head: [['Fecha', 'Tipo', 'Monto', 'Categoría', 'Descripción']],
+      head: [['Fecha', 'Tipo', 'Monto (CRC)', 'Categoría', 'Descripción']],
       body: rows,
       startY: 30,
       styles: { fontSize: 8 },
