@@ -1,3 +1,4 @@
+import { LimitService } from '../utils/limits';
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   Box,
@@ -36,6 +37,7 @@ export const Budgets: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { isPremium } = usePremium();
+  const limitService = new LimitService(isPremium ? 'premium' : 'free');
   const { categoriesQuery } = useCategories();
   const categories = categoriesQuery?.data || [];
 
@@ -48,8 +50,6 @@ export const Budgets: React.FC = () => {
   const [selectedCategory, setSelectedCategory] = useState('');
   const [limitAmount, setLimitAmount] = useState('');
   const [errorSnackbar, setErrorSnackbar] = useState<string | null>(null);
-
-  const MAX_FREE_BUDGETS = 1;
 
   const fetchBudgets = useCallback(async () => {
     if (!user?.id) return;
@@ -70,12 +70,13 @@ export const Budgets: React.FC = () => {
   }, [fetchBudgets]);
 
   const handleOpenModal = () => {
-    if (!isPremium && budgets.length >= MAX_FREE_BUDGETS) {
-      setErrorSnackbar(`El Plan Gratuito permite máximo ${MAX_FREE_BUDGETS} presupuesto. Pásate a Premium para presupuestos ilimitados.`);
-      return;
-    }
-    setOpenModal(true);
-  };
+  const budgetCheck = limitService.canCreateBudget(budgets.length);
+  if (!budgetCheck.allowed) {
+    setErrorSnackbar(budgetCheck.reason || 'No puedes crear más presupuestos.');
+    return;
+  }
+  setOpenModal(true);
+};
 
   const handleAddBudget = async (e: React.FormEvent) => {
     e.preventDefault();

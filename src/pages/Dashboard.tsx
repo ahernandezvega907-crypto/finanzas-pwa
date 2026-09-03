@@ -53,33 +53,23 @@ export const Dashboard: React.FC = () => {
     return alerts.slice(0, 3); // máximo 3 alertas para no saturar la pantalla
   }, [monthlyComparison]);
 
-  // 1. Cálculo de Totales
-  const { totalIncome, totalExpense, balance } = useMemo(() => {
-    let income = 0;
-    let expense = 0;
+  // 1. Totales — ahora vienen de useMonthlyComparison (MES ACTUAL), ya no se suma
+  // todo el histórico. Antes: útil recordar que era un useMemo separado sobre
+  // `transactions` completo; se retiró para eliminar la inconsistencia de alcance
+  // (pendiente #1 del documento maestro).
+  const { totalIncome, totalExpenses: totalExpense, balance } = monthlyComparison;
 
-    transactions.forEach((tx: any) => {
-      const amt = Number(tx.amount) || 0;
-      if (tx.type === 'income') {
-        income += amt;
-      } else if (tx.type === 'expense') {
-        expense += amt;
-      }
-    });
-
-    return {
-      totalIncome: income,
-      totalExpense: expense,
-      balance: income - expense,
-    };
-  }, [transactions]);
-
-  // 2. Agrupación de Gastos por Categoría para el Gráfico Circular
+  // 2. Agrupación de Gastos por Categoría para el Gráfico Circular — MES ACTUAL.
+  // Se filtra por el mismo criterio de mes que usa useMonthlyComparison
+  // (tx.date con formato YYYY-MM-DD, comparado por los primeros 7 caracteres)
+  // para mantener el mismo alcance en todo el Dashboard.
   const categoryData = useMemo(() => {
+    const now = new Date();
+    const currentMonthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
     const map: Record<string, number> = {};
 
     transactions
-      .filter((tx: any) => tx.type === 'expense')
+      .filter((tx: any) => tx.type === 'expense' && String(tx.date).slice(0, 7) === currentMonthKey)
       .forEach((tx: any) => {
         const catId = tx.category_id || tx.categoryId;
         const catObj = categories.find((c: any) => c.id === catId);
@@ -95,7 +85,8 @@ export const Dashboard: React.FC = () => {
     }));
   }, [transactions, categories]);
 
-  // 3. Datos de Comparativa para el Gráfico de Barras
+  // 3. Datos de Comparativa para el Gráfico de Barras — hereda MES ACTUAL de
+  // totalIncome/totalExpense (ver punto 1).
   const summaryBarData = useMemo(() => {
     return [
       { name: 'Ingresos', Monto: totalIncome },
@@ -135,7 +126,7 @@ export const Dashboard: React.FC = () => {
         </Box>
       ) : (
         <>
-          {/* Tarjetas Resumen */}
+          {/* Tarjetas Resumen — MES ACTUAL */}
           <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', md: 'repeat(3, 1fr)' }, gap: 3, mb: 4 }}>
             <Card sx={{ borderRadius: 3, boxShadow: 2, bgcolor: balance >= 0 ? 'background.paper' : '#2d1a1a' }}>
               <CardContent sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
@@ -152,7 +143,7 @@ export const Dashboard: React.FC = () => {
                 </Box>
                 <Box>
                   <Typography variant="body2" color="text.secondary">
-                    Balance Disponible
+                    Balance del Mes
                   </Typography>
                   <Typography variant="h5" sx={{ fontWeight: 700, color: balance >= 0 ? 'text.primary' : 'error.main' }}>
                     {formatCurrency(balance)}
@@ -168,7 +159,7 @@ export const Dashboard: React.FC = () => {
                 </Box>
                 <Box>
                   <Typography variant="body2" color="text.secondary">
-                    Ingresos Totales
+                    Ingresos del Mes
                   </Typography>
                   <Typography variant="h5" sx={{ fontWeight: 700, color: 'success.main' }}>
                     {formatCurrency(totalIncome)}
@@ -184,7 +175,7 @@ export const Dashboard: React.FC = () => {
                 </Box>
                 <Box>
                   <Typography variant="body2" color="text.secondary">
-                    Gastos Totales
+                    Gastos del Mes
                   </Typography>
                   <Typography variant="h5" sx={{ fontWeight: 700, color: 'error.main' }}>
                     {formatCurrency(totalExpense)}
@@ -261,12 +252,12 @@ export const Dashboard: React.FC = () => {
             </Card>
           </Box>
 
-          {/* Sección de Gráficos */}
+          {/* Sección de Gráficos — MES ACTUAL */}
           <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 3 }}>
             {/* Gráfico 1: Desglose por Categoría */}
             <Paper sx={{ p: 3, borderRadius: 3, minHeight: 380 }}>
               <Typography variant="h6" sx={{ fontWeight: 'bold', mb: 2 }}>
-                Gastos por Categoría
+                Gastos por Categoría (Mes Actual)
               </Typography>
               <Divider sx={{ mb: 2 }} />
               {categoryData.length === 0 ? (
@@ -299,7 +290,7 @@ export const Dashboard: React.FC = () => {
             {/* Gráfico 2: Comparativa Ingresos vs Gastos */}
             <Paper sx={{ p: 3, borderRadius: 3, minHeight: 380 }}>
               <Typography variant="h6" sx={{ fontWeight: 'bold', mb: 2 }}>
-                Comparativa Flujo de Caja
+                Comparativa Flujo de Caja (Mes Actual)
               </Typography>
               <Divider sx={{ mb: 2 }} />
               <ResponsiveContainer width="100%" height={280}>
