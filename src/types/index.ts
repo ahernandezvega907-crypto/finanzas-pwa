@@ -8,7 +8,5 @@ export interface User {
 // Centralización indexada de tipos de MoneyFlow
 export * from './auth';
 export * from './category';
-export * from './transaction';
 export * from './profile';
 export * from './budget';
-export * from './result';

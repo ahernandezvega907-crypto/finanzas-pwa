@@ -35,6 +35,30 @@ export const categoryService = {
       throw new Error('Usuario no autenticado.');
     }
 
+    // Rate limit por ventana (5/min): server-authoritative vía auth.uid()
+    // dentro del RPC. Se verifica antes del insert, mismo patrón que
+    // transactionsRepository.create(). El límite TOTAL por plan
+    // (LimitService.canCreateCategory) sigue viviendo en useCategories.ts,
+    // sin cambios — son dos chequeos distintos y complementarios.
+    const { data: limitResult, error: limitError } = await supabase.rpc(
+      'check_rate_limit',
+      { p_action_type: 'category' }
+    );
+
+    if (limitError) {
+      throw new Error('Error al verificar límite de tasa.');
+    }
+    if (!limitResult || limitResult.length === 0) {
+      throw new Error('No se pudo verificar el límite de tasa.');
+    }
+
+    const { allowed, retry_after } = limitResult[0];
+    if (!allowed) {
+      throw new Error(
+        `Estás creando categorías muy rápido. Esperá ${retry_after} segundos e intentá de nuevo.`
+      );
+    }
+
     const { data, error } = await supabase
       .from('categories')
       .insert([

@@ -24,6 +24,28 @@ class TransactionsRepository {
   }
 
   async create(profileId: string, input: CreateTransactionInput): Promise<TransactionRow> {
+    // Rate limit por ventana (10/min): server-authoritative, usa auth.uid()
+    // internamente en el RPC, no profileId del cliente. profileId acá solo
+    // se usa para armar la fila a insertar, no se le pasa al RPC.
+    const { data: limitResult, error: limitError } = await supabase.rpc(
+      "check_rate_limit",
+      { p_action_type: "transaction" }
+    );
+
+    if (limitError) {
+      throw new Error("Error al verificar límite de tasa.");
+    }
+    if (!limitResult || limitResult.length === 0) {
+      throw new Error("No se pudo verificar el límite de tasa.");
+    }
+
+    const { allowed, retry_after } = limitResult[0];
+    if (!allowed) {
+      throw new Error(
+        `Estás creando transacciones muy rápido. Esperá ${retry_after} segundos e intentá de nuevo.`
+      );
+    }
+
     const row = {
       profile_id: profileId,
       type: input.type,
