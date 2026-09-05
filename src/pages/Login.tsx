@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Box,
   Card,
@@ -16,8 +16,10 @@ import { useAuth } from '../context/AuthContext';
 const Login: React.FC = () => {
   const navigate = useNavigate();
   const { signInWithEmail, signUpWithEmail } = useAuth();
+  const [searchParams] = useSearchParams();
+  const referralCode = searchParams.get('ref') || undefined;
 
-  const [tabIndex, setTabIndex] = useState(0); // 0 = Iniciar Sesión, 1 = Registrarse
+  const [tabIndex, setTabIndex] = useState(referralCode ? 1 : 0);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -35,7 +37,6 @@ const Login: React.FC = () => {
     setError(null);
     setSuccessMsg(null);
 
-    // Verificación preventiva de conexión
     if (!navigator.onLine) {
       setError('No tienes conexión a internet para autenticar tus credenciales. Si ya cuentas con una sesión previa en este dispositivo, utiliza el PIN de desbloqueo.');
       return;
@@ -45,14 +46,12 @@ const Login: React.FC = () => {
 
     try {
       if (tabIndex === 0) {
-        // Modo Inicio de Sesión
         const { error: authError } = await signInWithEmail(email, password);
         if (authError) throw authError;
 
         navigate('/dashboard');
       } else {
-        // Modo Registro
-        const { error: authError } = await signUpWithEmail(email, password);
+        const { error: authError } = await signUpWithEmail(email, password, referralCode);
         if (authError) throw authError;
 
         setSuccessMsg('Registro exitoso. Revisa tu correo de confirmación o inicia sesión.');
@@ -99,6 +98,12 @@ const Login: React.FC = () => {
             Control financiero personal
           </Typography>
         </Box>
+
+        {referralCode && (
+          <Alert severity="info" sx={{ borderRadius: 2 }}>
+            Te invitaron con el código {referralCode}. ¡Regístrate para empezar!
+          </Alert>
+        )}
 
         <Tabs value={tabIndex} onChange={handleTabChange} variant="fullWidth" sx={{ mb: 1 }}>
           <Tab label="Iniciar Sesión" />
@@ -158,8 +163,7 @@ const Login: React.FC = () => {
               'Ingresar de forma segura'
             ) : (
               'Crear Cuenta'
-            )
-          }
+            )}
           </Button>
         </Box>
       </Card>

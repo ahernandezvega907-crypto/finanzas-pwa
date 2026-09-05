@@ -99,7 +99,7 @@ Deno.serve(async (req: Request) => {
 
     // 5. Rate limiting usando RPC
     const { data: usageData, error: usageError } = await supabaseUser
-      .rpc("check_and_increment_ai_usage", { p_limit: dailyLimit })
+      .rpc("check_and_increment_ai_usage")
       .single();
 
     if (usageError) {

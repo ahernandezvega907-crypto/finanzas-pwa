@@ -9,7 +9,7 @@ export interface AuthContextType {
   isPinLocked: boolean;
   setIsPinLocked: (locked: boolean) => void;
   signInWithEmail: (email: string, pass: string) => Promise<{ error: any }>;
-  signUpWithEmail: (email: string, pass: string) => Promise<{ error: any }>;
+  signUpWithEmail: (email: string, pass: string, referralCode?: string) => Promise<{ error: any }>;
   signOut: () => Promise<void>;
 }
 
@@ -22,7 +22,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isPinLocked, setIsPinLocked] = useState(false);
 
   useEffect(() => {
-    // 1. Obtener sesión inicial con manejo resiliente offline
     const initSession = async () => {
       try {
         const { data } = await supabase.auth.getSession();
@@ -44,7 +43,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     initSession();
 
-    // 2. Escuchar cambios de estado en la autenticación (Login, Logout, Token Refresh)
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
       setUser(session?.user ?? null);
@@ -66,11 +64,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const signUpWithEmail = async (email: string, pass: string) => {
+  const signUpWithEmail = async (email: string, pass: string, referralCode?: string) => {
     try {
       const { error } = await supabase.auth.signUp({
         email,
         password: pass,
+        options: referralCode
+          ? { data: { referral_code: referralCode } }
+          : undefined,
       });
       return { error };
     } catch (err: any) {
