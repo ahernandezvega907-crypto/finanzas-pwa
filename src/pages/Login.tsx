@@ -163,7 +163,8 @@ const Login: React.FC = () => {
               'Ingresar de forma segura'
             ) : (
               'Crear Cuenta'
-            )}
+            )
+          }
           </Button>
         </Box>
       </Card>

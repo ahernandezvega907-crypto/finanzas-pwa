@@ -20,6 +20,7 @@ interface SinpePaymentModalProps {
   visible: boolean;
   onClose: () => void;
   sinpePhone: string;
+  whatsappPhone: string;
   sinpeOwner: string;
   plan: 'mensual' | 'anual';
 }
@@ -28,6 +29,7 @@ export const SinpePaymentModal: React.FC<SinpePaymentModalProps> = ({
   visible,
   onClose,
   sinpePhone,
+  whatsappPhone,
   sinpeOwner,
   plan,
 }) => {
@@ -54,7 +56,7 @@ export const SinpePaymentModal: React.FC<SinpePaymentModalProps> = ({
         : 'Premium Anual (₡24.900/año)';
 
     const mensaje = `Hola, acabo de realizar un SINPE Móvil. Número de referencia: ${referenceNumber.trim()}. Me gustaría activar mi plan ${planLabel} en MoneyFlow.`;
-    const url = `https://wa.me/506${sinpePhone}?text=${encodeURIComponent(mensaje)}`;
+    const url = `https://wa.me/506${whatsappPhone}?text=${encodeURIComponent(mensaje)}`;
 
     const win = window.open(url, '_blank');
 

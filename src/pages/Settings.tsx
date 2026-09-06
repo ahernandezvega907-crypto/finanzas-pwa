@@ -16,6 +16,16 @@ import {
   IconButton,
   CircularProgress,
   Chip,
+  RadioGroup,
+  Radio,
+  FormControl,
+  FormLabel,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
 } from '@mui/material';
 import {
   Person as PersonIcon,
@@ -30,10 +40,19 @@ import {
   Warning as WarningIcon,
   WorkspacePremium as WorkspacePremiumIcon,
   Star as StarIcon,
+  GroupAdd as GroupAddIcon,
+  ContentCopy as ContentCopyIcon,
 } from '@mui/icons-material';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../lib/supabase';
 import { SinpePaymentModal } from '../components/SinpePaymentModal';
+
+interface ReferralRow {
+  referred_email: string;
+  status: 'pending' | 'rewarded';
+  created_at: string;
+  rewarded_at: string | null;
+}
 
 const Settings: React.FC = () => {
   const navigate = useNavigate();
@@ -47,6 +66,14 @@ const Settings: React.FC = () => {
   const [isPremium, setIsPremium] = useState<boolean>(false);
   const [premiumExpiresAt, setPremiumExpiresAt] = useState<string | null>(null);
   const [showSinpeModal, setShowSinpeModal] = useState<boolean>(false);
+
+  // Estados del programa de referidos
+  const [referralCode, setReferralCode] = useState<string | null>(null);
+  const [preferredReward, setPreferredReward] = useState<'premium_days' | 'discount'>('premium_days');
+  const [savingReward, setSavingReward] = useState(false);
+  const [referrals, setReferrals] = useState<ReferralRow[]>([]);
+  const [loadingReferrals, setLoadingReferrals] = useState(true);
+  const [linkCopied, setLinkCopied] = useState(false);
 
   // Clave dinámica de almacenamiento para aislar el PIN por usuario
   const pinStorageKey = user?.id ? `app_pin_code_${user.id}` : null;
@@ -75,13 +102,17 @@ const Settings: React.FC = () => {
       try {
         const { data: profile } = await supabase
           .from('profiles')
-          .select('is_premium, premium_expires_at')
+          .select('is_premium, premium_expires_at, referral_code, preferred_referral_reward')
           .eq('id', user.id)
           .single();
 
         if (profile) {
           setIsPremium(!!profile.is_premium);
           setPremiumExpiresAt(profile.premium_expires_at);
+          setReferralCode(profile.referral_code);
+          if (profile.preferred_referral_reward) {
+            setPreferredReward(profile.preferred_referral_reward);
+          }
         }
       } catch (err) {
         console.error('Error fetching profile:', err);
@@ -89,6 +120,55 @@ const Settings: React.FC = () => {
     };
     fetchPremiumStatus();
   }, [user?.id]);
+
+  useEffect(() => {
+    const fetchReferrals = async () => {
+      if (!user?.id) return;
+      setLoadingReferrals(true);
+      try {
+        const { data, error } = await supabase.rpc('get_my_referrals');
+        if (error) throw error;
+        setReferrals(data || []);
+      } catch (err) {
+        console.error('Error fetching referrals:', err);
+      } finally {
+        setLoadingReferrals(false);
+      }
+    };
+    fetchReferrals();
+  }, [user?.id]);
+
+  const referralLink = referralCode
+    ? `${window.location.origin}/login?ref=${referralCode}`
+    : '';
+
+  const handleCopyReferralLink = async () => {
+    if (!referralLink) return;
+    try {
+      await navigator.clipboard.writeText(referralLink);
+      setLinkCopied(true);
+      setTimeout(() => setLinkCopied(false), 3000);
+    } catch {
+      // Silencioso: el link también se muestra en el campo de texto para copiar a mano
+    }
+  };
+
+  const handleChangeReward = async (value: 'premium_days' | 'discount') => {
+    if (!user?.id) return;
+    setPreferredReward(value);
+    setSavingReward(true);
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({ preferred_referral_reward: value })
+        .eq('id', user.id);
+      if (error) throw error;
+    } catch (err) {
+      console.error('Error al guardar preferencia de recompensa:', err);
+    } finally {
+      setSavingReward(false);
+    }
+  };
 
   const handleSaveProfile = (e: React.FormEvent) => {
     e.preventDefault();
@@ -255,7 +335,7 @@ const Settings: React.FC = () => {
                   Tienes acceso ilimitado a transacciones, presupuestos, exportación PDF/Excel y 20 consultas diarias con el Gurú IA.
                 </Typography>
                 {premiumExpiresAt && (
-                  <Typography variant="caption" sx={{ color: '#818cf8', display: 'block', mt: 1 }}>
+                  <Typography variant="caption" sx={{ color: '#818cf8', display: 'block',mt: 1 }}>
                     Vence el: {new Date(premiumExpiresAt).toLocaleDateString()}
                   </Typography>
                 )}
@@ -336,6 +416,115 @@ const Settings: React.FC = () => {
             </Button>
           </Box>
         </Box>
+      </Paper>
+
+      {/* Programa de Referidos */}
+      <Paper sx={{ p: 3, borderRadius: 3, display: 'flex', flexDirection: 'column', gap: 2.5 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+          <GroupAddIcon color="primary" />
+          <Typography variant="h6" sx={{ fontWeight: 700 }}>
+            Invita y Gana
+          </Typography>
+        </Box>
+
+        <Divider />
+
+        <Typography variant="body2" color="text.secondary">
+          Compartí tu link con amigos. Cuando alguien se registre con tu link y luego se
+          vuelva Premium, recibís la recompensa que elijas abajo.
+        </Typography>
+
+        {referralCode ? (
+                    <TextField
+            fullWidth
+            size="small"
+            value={referralLink}
+            slotProps={{
+              input: {
+                readOnly: true,
+                endAdornment: (
+                  <InputAdornment position="end">
+                    <IconButton onClick={handleCopyReferralLink} edge="end">
+                      <ContentCopyIcon fontSize="small" />
+                    </IconButton>
+                  </InputAdornment>
+                ),
+              },
+            }}
+          />
+        ) : (
+          <Typography variant="caption" color="text.secondary">
+            Generando tu código de referido...
+          </Typography>
+        )}
+
+        {linkCopied && (
+          <Alert severity="success" sx={{ borderRadius: 2, py: 0 }}>
+            Link copiado al portapapeles
+          </Alert>
+        )}
+
+        <FormControl>
+          <FormLabel sx={{ fontWeight: 600, fontSize: '0.875rem', mb: 0.5 }}>
+            Recompensa preferida
+          </FormLabel>
+          <RadioGroup
+            value={preferredReward}
+            onChange={(e) => handleChangeReward(e.target.value as 'premium_days' | 'discount')}
+          >
+            <FormControlLabel
+              value="premium_days"
+              control={<Radio size="small" disabled={savingReward} />}
+              label="7 días gratis de Premium por cada referido"
+            />
+            <FormControlLabel
+              value="discount"
+              control={<Radio size="small" disabled={savingReward} />}
+              label="10% de descuento en tu próximo pago SINPE"
+            />
+          </RadioGroup>
+        </FormControl>
+
+        <Divider />
+
+        <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+          Tus referidos
+        </Typography>
+
+        {loadingReferrals ? (
+          <Box sx={{ display: 'flex', justifyContent: 'center', py: 2 }}>
+            <CircularProgress size={24} />
+          </Box>
+        ) : referrals.length === 0 ? (
+          <Typography variant="body2" color="text.secondary">
+            Todavía no invitaste a nadie. ¡Compartí tu link para empezar a ganar!
+          </Typography>
+        ) : (
+          <TableContainer>
+            <Table size="small">
+              <TableHead>
+                <TableRow>
+                  <TableCell>Email</TableCell>
+                  <TableCell>Estado</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {referrals.map((r, idx) => (
+                  <TableRow key={idx}>
+                    <TableCell>{r.referred_email}</TableCell>
+                    <TableCell>
+                      <Chip
+                        label={r.status === 'rewarded' ? 'Recompensado' : 'Pendiente'}
+                        color={r.status === 'rewarded' ? 'success' : 'default'}
+                        size="small"
+                      />
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        )}
       </Paper>
 
       {/* Seguridad y PIN de Bloqueo */}
@@ -534,7 +723,7 @@ const Settings: React.FC = () => {
         </Box>
 
         <Typography variant="body2" color="text.secondary">
-          Esta acción eliminará de forma permanente e irreversible todas tus transacciones, categorías, presupuestos, historial de uso del Gurú IA, y tu cuenta de acceso completa, conforme a tu derecho de cancelación bajo la Ley 8968.
+          Esta acción eliminará de forma permanente e irreversible todas tus transacciones, categorías, presupuestos, historial de uso del Gurú IA, y tu cuenta de acceso completa,conforme a tu derecho de cancelación bajo la Ley 8968.
         </Typography>
 
         <Box sx={{ display: 'flex', justifyContent: 'flex-start' }}>
@@ -555,7 +744,8 @@ const Settings: React.FC = () => {
       <SinpePaymentModal
       visible={showSinpeModal}
       onClose={() => setShowSinpeModal(false)}
-      sinpePhone="89855110"
+      sinpePhone="89747456"
+      whatsappPhone="89855110"
       sinpeOwner="Armando Hernández"
       plan="mensual"
       />

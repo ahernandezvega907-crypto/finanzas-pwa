@@ -337,11 +337,11 @@ export const Pricing: React.FC = () => {
         </Card>
       </Box>
 
-      {/* Modal de Pago SINPE Móvil */}
-      <SinpePaymentModal
+            <SinpePaymentModal
         visible={showSinpeModal}
         onClose={() => setShowSinpeModal(false)}
         sinpePhone="89747456"
+        whatsappPhone="89855110"
         sinpeOwner="Armando Hernández"
         plan={selectedPlan}
       />
